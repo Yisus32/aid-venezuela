@@ -212,7 +212,7 @@ const entries = ready ? await getEntries() : [];
           <label>Ciudad <input name="city" /></label>
           <label class="wide">Dirección <input name="address" /></label>
           <div class="wide map-pick">
-            <span class="map-pick-label">Ubicación — busca o haz clic en el mapa para fijar las coordenadas (también puedes arrastrar el marcador)</span>
+            <span class="map-pick-label">Ubicación — escribe la dirección arriba, busca, o haz clic en el mapa (también puedes arrastrar el marcador). <span id="geo-status"></span></span>
             <div id="pick-map"></div>
           </div>
           <label>Latitud <input name="lat" type="number" step="any" /></label>
@@ -341,6 +341,32 @@ const entries = ready ? await getEntries() : [];
         }, 90);
       }
 
+      // Geocodifica la dirección (Nominatim) y coloca el marcador con su coordenada.
+      const geocoder =
+        (typeof L !== "undefined" && L.Control && L.Control.Geocoder)
+          ? L.Control.Geocoder.nominatim()
+          : null;
+      function geocodeAddress() {
+        const status = document.getElementById("geo-status");
+        const g = (n) => (form.elements[n]?.value ?? "").trim();
+        if (!g("address")) return; // solo si hay dirección escrita
+        if (!geocoder || !pickMap) return;
+        const query = [g("address"), g("city"), g("state"), g("country") || "Venezuela"]
+          .filter(Boolean)
+          .join(", ");
+        if (status) status.textContent = "Buscando dirección…";
+        geocoder.geocode(query, (results) => {
+          if (results && results.length) {
+            const c = results[0].center;
+            setMarker(c.lat, c.lng);
+            pickMap.setView(c, 16);
+            if (status) status.textContent = "Ubicación encontrada — ajusta el marcador si hace falta.";
+          } else if (status) {
+            status.textContent = "No se encontró; fija el punto a mano en el mapa.";
+          }
+        });
+      }
+
       // ---- Personas / Puntos de recolección: filas repetibles (no JSON) ----
       const PERSON_FIELDS = [
         { k: "name", ph: "Nombre" },
@@ -396,6 +422,7 @@ const entries = ready ? await getEntries() : [];
       function openForm(entry) {
         form.reset();
         statusEl.textContent = "";
+        const gs = document.getElementById("geo-status"); if (gs) gs.textContent = "";
         if (entry) {
           mode = "edit"; editingName = entry.filename;
           document.getElementById("form-title").textContent = "Editar: " + entry.filename;
@@ -481,6 +508,7 @@ const entries = ready ? await getEntries() : [];
       }
 
       document.getElementById("new-btn").addEventListener("click", () => openForm(null));
+      form.elements.address.addEventListener("change", geocodeAddress);
       document.getElementById("save").addEventListener("click", save);
       document.getElementById("cancel").addEventListener("click", () => dlg.close());
       document.getElementById("copy-url").addEventListener("click", () => {
@@ -768,6 +796,7 @@ const entries = ready ? await getEntries() : [];
 
       .map-pick { display: flex; flex-direction: column; gap: 4px; }
       .map-pick-label { font-size: 12px; color: var(--muted); }
+      #geo-status { color: var(--gold-deep); font-weight: 600; }
       #pick-map { height: 240px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 
       dialog { width: min(780px, 94vw); border: none; border-radius: 16px; padding: 0; box-shadow: 0 24px 70px rgba(20,33,61,0.4); }

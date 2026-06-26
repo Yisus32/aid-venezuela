@@ -6,11 +6,13 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "npm run generate-db && astro dev",
-    "build": "npm run generate-db && astro build",
+    "build": "prisma generate && npm run generate-db && astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "generate-db": "node scripts/generate-db.mjs"
+    "generate-db": "node scripts/generate-db.mjs",
+    "seed": "node scripts/seed-db.mjs"
   },
   "dependencies": {
     "@astrojs/netlify": "^8.0.0",

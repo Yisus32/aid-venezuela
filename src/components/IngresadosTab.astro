@@ -113,7 +113,7 @@ const groups = GROUPS.filter((g) => byKind(g.kind).length > 0);
     }
 
     async function load() {
-      for (const url of ["/.netlify/functions/ingresados", "/data/ingresados.json"]) {
+      for (const url of ["/api/ingresados", "/data/ingresados.json"]) {
         try {
           const r = await fetch(url, { cache: "no-store" });
           if (!r.ok) continue;
@@ -121,7 +121,7 @@ const groups = GROUPS.filter((g) => byKind(g.kind).length > 0);
           if (!d.items?.length) continue;
           render(d.items);
           applyFilter();
-          const live = url.includes("functions");
+          const live = url.includes("/api/");
           const el = document.getElementById("ing-updated");
           if (el)
             el.textContent = live

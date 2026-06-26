@@ -1,9 +1,5 @@
-# Netlify deployment config.
+# Netlify config. The @astrojs/netlify adapter handles SSR/on-demand routes
+# (admin, /api/*) automatically — no manual functions directory needed.
 [build]
   command = "npm run build"
   publish = "dist"
-  functions = "netlify/functions"
-
-# The dashboard's "Cifras oficiales" cards call /.netlify/functions/figures.
-# Without this function deployed, they fall back to the static
-# public/data/figures.json (updated at build time).

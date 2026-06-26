@@ -101,6 +101,31 @@
       "Productos de higiene personal"
     ]
   },
+  "cen-tac-sc-uptaiet.png": {
+    "category": "center",
+    "urgency": "high",
+    "title": "Centro de Acopio UPTAIET",
+    "organization": "Universidad Politécnica Territorial Agroindustrial del estado Táchira (UPTAIET)",
+    "description": "Caracas y La Guaira necesitan ayuda urgente. Centro autorizado por Protección Civil.",
+    "location": {
+      "country": "Venezuela",
+      "state": "Táchira",
+      "city": "San Cristóbal",
+      "address": "UPTAIET (antiguo IUT), San Cristóbal"
+    },
+    "coords": { "lat": 7.783, "lng": -72.212 },
+    "schedule": "8:00 a.m. a 4:00 p.m.",
+    "needs": [
+      "Agua potable",
+      "Alimentos enlatados",
+      "Medicamentos",
+      "Kit de primeros auxilios",
+      "Ropa en buen estado",
+      "Bolsas plásticas",
+      "Pañales para niños y adultos",
+      "Alimentos para mascotas"
+    ]
+  },
   "cen-tac-sc-pte_real.png": {
     "category": "center",
     "urgency": "medium",

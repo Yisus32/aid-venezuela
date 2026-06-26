@@ -612,6 +612,35 @@
       }
     },
     {
+      "filename": "cen-tac-sc-cotatur.png",
+      "path": "/images/center/venezuela/tachira/cen-tac-sc-cotatur.png",
+      "format": "png",
+      "fileSize": 1126244,
+      "code": "tac-sc-cotatur",
+      "category": "center",
+      "urgency": "medium",
+      "title": "Punto de Recolección de Insumos - COTATUR",
+      "organization": "COTATUR (Corporación Tachirense de Turismo)",
+      "description": "Venezuela nos necesita. Desde el Táchira enviamos esperanza, apoyo y alivio a las familias afectadas por el sismo. Punto de recolección de insumos para los afectados del terremoto en Caracas.",
+      "location": {
+        "country": "Venezuela",
+        "state": "Táchira",
+        "city": "San Cristóbal",
+        "address": "COTATUR, Av. España, San Cristóbal"
+      },
+      "coords": {
+        "lat": 7.779,
+        "lng": -72.219
+      },
+      "needs": [
+        "Alimentos no perecederos",
+        "Artículos de higiene",
+        "Insumos médicos",
+        "Agua embotellada",
+        "Ropa limpia y cobijas"
+      ]
+    },
+    {
       "filename": "cen-tac-sc-pte_real.png",
       "path": "/images/center/venezuela/tachira/cen-tac-sc-pte_real.png",
       "format": "png",
@@ -1223,5 +1252,5 @@
       "notes": "Para solicitar la atención, escribir vía mensaje de texto o WhatsApp."
     }
   ],
-  "generatedAt": "2026-06-26T19:24:38.150Z"
+  "generatedAt": "2026-06-26T19:34:09.021Z"
 }

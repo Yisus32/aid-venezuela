@@ -144,6 +144,27 @@
     "needs": ["Insumos médicos", "Artículos de primera necesidad"],
     "notes": "Algunos detalles de insumos no son del todo legibles en el aviso original."
   },
+  "cen-tac-sc-cotatur.png": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Punto de Recolección de Insumos - COTATUR",
+    "organization": "COTATUR (Corporación Tachirense de Turismo)",
+    "description": "Venezuela nos necesita. Desde el Táchira enviamos esperanza, apoyo y alivio a las familias afectadas por el sismo. Punto de recolección de insumos para los afectados del terremoto en Caracas.",
+    "location": {
+      "country": "Venezuela",
+      "state": "Táchira",
+      "city": "San Cristóbal",
+      "address": "COTATUR, Av. España, San Cristóbal"
+    },
+    "coords": { "lat": 7.779, "lng": -72.219 },
+    "needs": [
+      "Alimentos no perecederos",
+      "Artículos de higiene",
+      "Insumos médicos",
+      "Agua embotellada",
+      "Ropa limpia y cobijas"
+    ]
+  },
   "cen-tac-sc-uptaiet.png": {
     "category": "center",
     "urgency": "high",

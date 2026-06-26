@@ -41,6 +41,10 @@ const entries = ready ? await getEntries() : [];
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></svg>
           Copiar URL
         </button>
+        <button id="audit-btn" type="button" class="btn ghost">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+          Auditoría
+        </button>
         <button id="new-btn" type="button" class="btn primary">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
           Nuevo
@@ -78,7 +82,11 @@ const entries = ready ? await getEntries() : [];
         Limpiar
       </button>
     </div>
-    <p class="count"><span id="count">{entries.length}</span> registros</p>
+    <p class="count">
+      <span id="count">{entries.length}</span> registros ·
+      <span id="count-c">0</span> centros ·
+      <span id="count-p">0</span> profesionales
+    </p>
 
     <table>
       <thead>
@@ -182,6 +190,26 @@ const entries = ready ? await getEntries() : [];
           </button>
         </div>
       </form>
+    </dialog>
+
+    <!-- Auditoría -->
+    <dialog id="audit-dialog">
+      <div class="audit-head">
+        <h2>Auditoría de cambios</h2>
+        <button type="button" id="audit-close" class="btn ghost">Cerrar</button>
+      </div>
+      <p class="audit-note">
+        Registro de quién guardó qué y desde dónde. Como no hay cuentas de
+        usuario, "quién" se captura por IP, país y navegador de la petición.
+      </p>
+      <div class="audit-wrap">
+        <table class="audit-table">
+          <thead>
+            <tr><th>Fecha</th><th>Acción</th><th>Registro</th><th>IP</th><th>País</th><th>Navegador</th></tr>
+          </thead>
+          <tbody id="audit-rows"></tbody>
+        </table>
+      </div>
     </dialog>
 
     <script is:inline define:vars={{ ENTRIES: entries }}>
@@ -354,11 +382,36 @@ const entries = ready ? await getEntries() : [];
       document.getElementById("save").addEventListener("click", save);
       document.getElementById("cancel").addEventListener("click", () => dlg.close());
       document.getElementById("copy-url").addEventListener("click", () => {
-        navigator.clipboard.writeText(location.href).then(() => {
-          const b = document.getElementById("copy-url"); b.textContent = "¡Copiado!";
-          setTimeout(() => (b.textContent = "Copiar URL"), 1500);
-        });
+        navigator.clipboard.writeText(location.href);
+        const b = document.getElementById("copy-url");
+        const prev = b.innerHTML;
+        b.textContent = "¡Copiado!";
+        setTimeout(() => (b.innerHTML = prev), 1500);
       });
+
+      // ---- Auditoría: quién/desde dónde se guardó cada registro ----
+      const auditDlg = document.getElementById("audit-dialog");
+      const ACT = { create: "Creó", update: "Editó", delete: "Borró" };
+      document.getElementById("audit-btn").addEventListener("click", async () => {
+        auditDlg.showModal();
+        const tb = document.getElementById("audit-rows");
+        tb.innerHTML = '<tr><td colspan="6">Cargando…</td></tr>';
+        try {
+          const r = await fetch("/api/admin/audit", { headers: { "x-admin-token": TOKEN } });
+          if (!r.ok) { tb.innerHTML = '<tr><td colspan="6">No se pudo cargar.</td></tr>'; return; }
+          const rows = await r.json();
+          if (!rows.length) { tb.innerHTML = '<tr><td colspan="6">Sin registros de auditoría todavía.</td></tr>'; return; }
+          tb.innerHTML = rows.map((a) => {
+            const when = new Date(a.createdAt).toLocaleString("es-VE");
+            const ua = (a.userAgent || "").replace(/\s*\(.*$/, "").slice(0, 36);
+            return `<tr><td>${esc(when)}</td>` +
+              `<td><span class="tag a-${esc(a.action)}">${ACT[a.action] || esc(a.action)}</span></td>` +
+              `<td>${esc(a.title || a.filename)}</td><td>${esc(a.ip || "—")}</td>` +
+              `<td>${esc(a.country || "—")}</td><td>${esc(ua || "—")}</td></tr>`;
+          }).join("");
+        } catch { tb.innerHTML = '<tr><td colspan="6">Error de red.</td></tr>'; }
+      });
+      document.getElementById("audit-close").addEventListener("click", () => auditDlg.close());
       // ---- Tabla renderizada en JS: filtros (como la vista pública),
       // paginación (10/pág) y refresco sin recargar el navegador ----
       const PER_PAGE = 10;
@@ -427,6 +480,8 @@ const entries = ready ? await getEntries() : [];
         page = Math.min(Math.max(page, 0), pages - 1);
         rowsEl.innerHTML = filtered.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE).map(rowHtml).join("");
         countEl.textContent = filtered.length;
+        document.getElementById("count-c").textContent = filtered.filter((e) => e.category === "center").length;
+        document.getElementById("count-p").textContent = filtered.filter((e) => e.category === "professional").length;
         pageInfo.textContent = "Página " + (page + 1) + " de " + pages;
         prevBtn.disabled = page === 0;
         nextBtn.disabled = page >= pages - 1;
@@ -570,6 +625,19 @@ const entries = ready ? await getEntries() : [];
       legend { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 0 6px; }
       .form-status { color: var(--urgent); font-size: 13px; min-height: 18px; }
       .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+      #audit-dialog { padding: 24px; width: min(920px, 96vw); }
+      .audit-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+      .audit-head h2 { font-family: var(--font-display); font-weight: 800; font-size: 18px; color: var(--ink); margin: 0; }
+      .audit-note { font-size: 12px; color: var(--muted); margin: 6px 0 14px; line-height: 1.4; }
+      .audit-wrap { max-height: 62vh; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+      .audit-table { width: 100%; border-collapse: collapse; }
+      .audit-table th { position: sticky; top: 0; background: var(--ink); color: #fff; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.05em; text-transform: uppercase; text-align: left; padding: 9px 10px; }
+      .audit-table td { font-size: 12.5px; padding: 8px 10px; border-bottom: 1px solid #eef0f4; white-space: nowrap; color: var(--text); }
+      .audit-table td:nth-child(3) { white-space: normal; }
+      .a-create { color: #2f7d32; border-color: #cde8cf; background: #eef6ee; }
+      .a-update { color: var(--gold-deep); border-color: #f0dcb4; background: #fbf3e3; }
+      .a-delete { color: var(--urgent); border-color: #f5cccc; background: #fef2f2; }
 
       @media (max-width: 640px) { .grid { grid-template-columns: 1fr 1fr; } }
     </style>

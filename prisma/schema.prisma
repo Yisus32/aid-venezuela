@@ -113,3 +113,19 @@ model CollectionPoint {
   point    Point   @relation(fields: [pointId], references: [id], onDelete: Cascade)
   pointId  String
 }
+
+/// Audit trail: who saved what and from where (there are no per-user accounts,
+/// so "who" is captured as IP / country / user-agent of the admin request).
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String // "create" | "update" | "delete"
+  filename  String // target record id
+  title     String?
+  category  String?
+  ip        String?
+  country   String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

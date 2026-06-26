@@ -182,17 +182,56 @@ export async function writePoint(e: ImageEntry): Promise<void> {
   }
 }
 
-/** Delete a point (and its cascading relations) by filename. */
-export async function deletePoint(filename: string): Promise<void> {
+/** Delete a point (and its cascading relations) by filename. Returns the
+ * deleted record's title/category for the audit log, or null if not found. */
+export async function deletePoint(
+  filename: string,
+): Promise<{ title: string; category: string } | null> {
   const prisma = getPrisma();
   if (!prisma) throw new Error("DB not configured");
   const p = await prisma.point.findUnique({
     where: { filename },
-    select: { id: true, locationId: true },
+    select: { id: true, locationId: true, title: true, category: true },
   });
-  if (!p) return;
+  if (!p) return null;
   await prisma.point.delete({ where: { id: p.id } });
   await prisma.location.delete({ where: { id: p.locationId } }).catch(() => {});
+  return { title: p.title, category: p.category };
+}
+
+// ---- Audit log (AID-09): records who saved what and from where. ----
+export interface AuditEntry {
+  action: string;
+  filename: string;
+  title?: string | null;
+  category?: string | null;
+  ip?: string | null;
+  country?: string | null;
+  userAgent?: string | null;
+}
+export async function logAudit(data: AuditEntry): Promise<void> {
+  const prisma = getPrisma();
+  if (!prisma) return;
+  try {
+    await prisma.auditLog.create({
+      data: {
+        action: data.action,
+        filename: data.filename,
+        title: data.title ?? null,
+        category: data.category ?? null,
+        ip: data.ip ?? null,
+        country: data.country ?? null,
+        userAgent: data.userAgent ?? null,
+      },
+    });
+  } catch (err) {
+    console.error("[audit] failed to record:", err);
+  }
+}
+export async function getAuditLog(limit = 300) {
+  const prisma = getPrisma();
+  if (!prisma) return [];
+  return prisma.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: limit });
 }
 
 /** All entries — from the DB if configured, else the static JSON snapshot. */

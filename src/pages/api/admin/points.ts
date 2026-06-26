@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
-import { getEntries, writePoint } from "../../../lib/db";
-import { checkAdmin } from "../../../lib/admin-auth";
+import { getEntries, writePoint, logAudit } from "../../../lib/db";
+import { checkAdmin, reqMeta } from "../../../lib/admin-auth";
 
 export const prerender = false;
 
@@ -19,7 +19,7 @@ const slug = (s: string) =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 40);
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, clientAddress }) => {
   if (!checkAdmin(request)) return new Response("Unauthorized", { status: 401 });
   try {
     const body = await request.json();
@@ -29,6 +29,13 @@ export const POST: APIRoute = async ({ request }) => {
       body.filename = "reg-" + (slug(body.title) || "centro") + "-" + Math.random().toString(36).slice(2, 7);
     }
     await writePoint(body);
+    await logAudit({
+      action: "create",
+      filename: body.filename,
+      title: body.title,
+      category: body.category,
+      ...reqMeta(request, clientAddress),
+    });
     return Response.json({ ok: true });
   } catch (e: any) {
     return new Response(e?.message || "Error", { status: 400 });

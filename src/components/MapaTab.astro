@@ -523,6 +523,9 @@ const personalCount = points.filter((p) => p.category === "professional").length
     overflow: hidden;
     box-shadow: 0 8px 28px rgba(20, 33, 61, 0.08);
     background: #e8edf2;
+    /* Contain Leaflet's internal high z-indexes so they don't paint over the
+       sticky mobile header or the navigation drawer. */
+    isolation: isolate;
   }
   .list-pane {
     height: 100%;

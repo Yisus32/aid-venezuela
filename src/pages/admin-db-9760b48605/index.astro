@@ -17,6 +17,10 @@ const entries = ready ? await getEntries() : [];
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
     <title>Admin · Ayuda Venezuela</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder@2.4.0/dist/Control.Geocoder.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder@2.4.0/dist/Control.Geocoder.js"></script>
   </head>
   <body>
     <div class="warn">
@@ -41,7 +45,24 @@ const entries = ready ? await getEntries() : [];
       )
     }
 
-    <input id="search" type="search" placeholder="Buscar por título, organización, estado…" />
+    <div class="filters">
+      <select id="f-category">
+        <option value="">Tipo: todos</option>
+        <option value="center">Centro</option>
+        <option value="professional">Profesional</option>
+      </select>
+      <select id="f-country"><option value="">País: todos</option></select>
+      <select id="f-state"><option value="">Estado: todos</option></select>
+      <select id="f-urgency">
+        <option value="">Urgencia: todas</option>
+        <option value="high">Alta</option>
+        <option value="medium">Media</option>
+        <option value="low">Baja</option>
+      </select>
+      <select id="f-org"><option value="">Organización: todas</option></select>
+      <input id="search" type="search" placeholder="Buscar texto…" />
+      <button type="button" id="f-clear">Limpiar</button>
+    </div>
     <p class="count"><span id="count">{entries.length}</span> registros</p>
 
     <table>
@@ -51,7 +72,14 @@ const entries = ready ? await getEntries() : [];
       <tbody id="rows">
         {
           entries.map((e) => (
-            <tr data-filename={e.filename}>
+            <tr
+              data-filename={e.filename}
+              data-cat={e.category}
+              data-country={e.location?.country ?? ""}
+              data-state={e.location?.state ?? ""}
+              data-urg={e.urgency ?? ""}
+              data-org={e.organization ?? ""}
+            >
               <td>{e.title}</td>
               <td>{e.organization ?? "—"}</td>
               <td>{e.category === "center" ? "Centro" : "Profesional"}</td>
@@ -94,6 +122,10 @@ const entries = ready ? await getEntries() : [];
           <label>Estado <input name="state" /></label>
           <label>Ciudad <input name="city" /></label>
           <label class="wide">Dirección <input name="address" /></label>
+          <div class="wide map-pick">
+            <span class="map-pick-label">Ubicación — busca o haz clic en el mapa para fijar las coordenadas (también puedes arrastrar el marcador)</span>
+            <div id="pick-map"></div>
+          </div>
           <label>Latitud <input name="lat" type="number" step="any" /></label>
           <label>Longitud <input name="lng" type="number" step="any" /></label>
           <label class="wide">Horario <input name="schedule" /></label>
@@ -148,6 +180,61 @@ const entries = ready ? await getEntries() : [];
 
       const setv = (n, v) => { const el = form.elements[n]; if (el) el.value = v ?? ""; };
 
+      // ---- Mapa selector de coordenadas en el modal ----
+      let pickMap, pickMarker;
+      const round6 = (n) => Math.round(n * 1e6) / 1e6;
+      function writeLatLng(lat, lng) {
+        form.elements.lat.value = round6(lat);
+        form.elements.lng.value = round6(lng);
+      }
+      function setMarker(lat, lng) {
+        if (!pickMap) return;
+        if (!pickMarker) {
+          pickMarker = L.marker([lat, lng], { draggable: true }).addTo(pickMap);
+          pickMarker.on("dragend", () => {
+            const p = pickMarker.getLatLng();
+            writeLatLng(p.lat, p.lng);
+          });
+        } else pickMarker.setLatLng([lat, lng]);
+        writeLatLng(lat, lng);
+      }
+      function clearMarker() {
+        if (pickMap && pickMarker) { pickMap.removeLayer(pickMarker); pickMarker = null; }
+      }
+      function initPickMap() {
+        if (pickMap || typeof L === "undefined") return;
+        pickMap = L.map("pick-map", { scrollWheelZoom: false }).setView([8, -66], 5);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19, attribution: "© OpenStreetMap",
+        }).addTo(pickMap);
+        if (L.Control && L.Control.Geocoder) {
+          L.Control.geocoder({ defaultMarkGeocode: false, placeholder: "Buscar lugar…" })
+            .on("markgeocode", (e) => {
+              const c = e.geocode.center;
+              setMarker(c.lat, c.lng);
+              pickMap.setView(c, 15);
+            })
+            .addTo(pickMap);
+        }
+        pickMap.on("click", (e) => setMarker(e.latlng.lat, e.latlng.lng));
+      }
+      function syncMap() {
+        initPickMap();
+        if (!pickMap) return;
+        setTimeout(() => {
+          pickMap.invalidateSize();
+          const lat = parseFloat(form.elements.lat.value);
+          const lng = parseFloat(form.elements.lng.value);
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            setMarker(lat, lng);
+            pickMap.setView([lat, lng], 13);
+          } else {
+            clearMarker();
+            pickMap.setView([8, -66], 5);
+          }
+        }, 90);
+      }
+
       function openForm(entry) {
         form.reset();
         statusEl.textContent = "";
@@ -175,6 +262,7 @@ const entries = ready ? await getEntries() : [];
           form.elements.filename.readOnly = false;
         }
         dlg.showModal();
+        syncMap();
       }
 
       function collect() {
@@ -247,17 +335,60 @@ const entries = ready ? await getEntries() : [];
       document.querySelectorAll(".del").forEach((b) =>
         b.addEventListener("click", () => del(b.dataset.filename)),
       );
+      // ---- Filtros (los mismos de la vista pública: país→estado, urgencia,
+      // organización, tipo) + búsqueda de texto ----
+      const fCat = document.getElementById("f-category");
+      const fCountry = document.getElementById("f-country");
+      const fState = document.getElementById("f-state");
+      const fUrg = document.getElementById("f-urgency");
+      const fOrg = document.getElementById("f-org");
       const search = document.getElementById("search");
-      search.addEventListener("input", () => {
-        const q = search.value.toLowerCase();
+      const rowsEls = [...document.querySelectorAll("#rows tr")];
+      const uniq = (arr) =>
+        [...new Set(arr.filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+      function fillSel(sel, values) {
+        const first = sel.options[0];
+        sel.innerHTML = "";
+        sel.appendChild(first);
+        for (const v of values) {
+          const o = document.createElement("option");
+          o.value = v; o.textContent = v;
+          sel.appendChild(o);
+        }
+      }
+      fillSel(fCountry, uniq(rowsEls.map((r) => r.dataset.country)));
+      fillSel(fOrg, uniq(rowsEls.map((r) => r.dataset.org)));
+      function rebuildStates() {
+        const c = fCountry.value;
+        const prev = fState.value;
+        fillSel(fState, uniq(rowsEls.filter((r) => !c || r.dataset.country === c).map((r) => r.dataset.state)));
+        fState.value = [...fState.options].some((o) => o.value === prev) ? prev : "";
+      }
+      function applyFilters() {
+        const cat = fCat.value, co = fCountry.value, st = fState.value;
+        const ur = fUrg.value, og = fOrg.value, q = search.value.trim().toLowerCase();
         let n = 0;
-        document.querySelectorAll("#rows tr").forEach((tr) => {
-          const show = tr.textContent.toLowerCase().includes(q);
-          tr.style.display = show ? "" : "none";
-          if (show) n++;
+        rowsEls.forEach((r) => {
+          const ok =
+            (!cat || r.dataset.cat === cat) &&
+            (!co || r.dataset.country === co) &&
+            (!st || r.dataset.state === st) &&
+            (!ur || r.dataset.urg === ur) &&
+            (!og || r.dataset.org === og) &&
+            (!q || r.textContent.toLowerCase().includes(q));
+          r.style.display = ok ? "" : "none";
+          if (ok) n++;
         });
         document.getElementById("count").textContent = n;
+      }
+      fCountry.addEventListener("change", () => { rebuildStates(); applyFilters(); });
+      [fCat, fState, fUrg, fOrg].forEach((el) => el.addEventListener("change", applyFilters));
+      search.addEventListener("input", applyFilters);
+      document.getElementById("f-clear").addEventListener("click", () => {
+        fCat.value = ""; fCountry.value = ""; fUrg.value = ""; fOrg.value = ""; search.value = "";
+        rebuildStates(); applyFilters();
       });
+      rebuildStates();
 
       // Pide el token al ENTRAR a la página (una sola vez) y lo valida contra la
       // API. Una vez validado, guardar/borrar no vuelven a pedirlo.
@@ -286,8 +417,17 @@ const entries = ready ? await getEntries() : [];
       .bar-actions { display: flex; gap: 8px; }
       button { font: inherit; padding: 8px 14px; border: 1px solid #c9cfdb; border-radius: 8px; background: #fff; cursor: pointer; }
       button.primary { background: #14213d; color: #fff; border-color: #14213d; }
-      #search { width: calc(100% - 40px); margin: 0 20px; padding: 10px 12px; border: 1px solid #c9cfdb; border-radius: 8px; font: inherit; }
+      .filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 20px; }
+      .filters select, .filters input, .filters button {
+        font: inherit; font-size: 13px; padding: 8px 10px;
+        border: 1px solid #c9cfdb; border-radius: 8px; background: #fff; color: #1c2433;
+      }
+      .filters #search { flex: 1; min-width: 160px; }
+      .filters button { cursor: pointer; }
       .count { margin: 10px 20px; font-size: 13px; color: #5b6472; }
+      .map-pick { display: flex; flex-direction: column; gap: 4px; }
+      .map-pick-label { font-size: 12px; color: #5b6472; }
+      #pick-map { height: 240px; border: 1px solid #c9cfdb; border-radius: 8px; overflow: hidden; }
       .nodb { margin: 16px 20px; background: #fff; border: 1px dashed #c9cfdb; border-radius: 8px; padding: 16px; }
       table { width: calc(100% - 40px); margin: 0 20px 40px; border-collapse: collapse; background: #fff; border: 1px solid #e3e6ec; border-radius: 10px; overflow: hidden; }
       th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eef0f4; font-size: 14px; }

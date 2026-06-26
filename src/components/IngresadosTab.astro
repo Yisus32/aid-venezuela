@@ -21,7 +21,6 @@ const data: Data = JSON.parse(
 const GROUPS: { kind: string; label: string }[] = [
   { kind: "consolidado", label: "Listados consolidados" },
   { kind: "hospital", label: "Por hospital" },
-  { kind: "busqueda", label: "Búsqueda de personas" },
   { kind: "otro", label: "Otros listados" },
 ];
 
@@ -47,6 +46,15 @@ const groups = GROUPS.filter((g) => byKind(g.kind).length > 0);
     <span class="ing-updated" id="ing-updated"></span>
   </div>
 
+  <input
+    type="search"
+    id="ing-search"
+    class="ing-search"
+    placeholder="Filtrar listados (ej: Vargas, consolidado…)"
+    autocomplete="off"
+    aria-label="Filtrar listados"
+  />
+
   <div id="ing-groups">
     {
       groups.map((g) => (
@@ -66,6 +74,7 @@ const groups = GROUPS.filter((g) => byKind(g.kind).length > 0);
       ))
     }
   </div>
+  <p id="ing-empty" class="ing-empty" hidden>No hay listados que coincidan con el filtro.</p>
 
   <p class="ing-note">
     Información recopilada por terceros y alojada en Google Drive. Verifica los
@@ -80,7 +89,6 @@ const groups = GROUPS.filter((g) => byKind(g.kind).length > 0);
     const GROUPS = [
       { kind: "consolidado", label: "Listados consolidados" },
       { kind: "hospital", label: "Por hospital" },
-      { kind: "busqueda", label: "Búsqueda de personas" },
       { kind: "otro", label: "Otros listados" },
     ];
     const esc = (s: string) =>
@@ -112,6 +120,7 @@ const groups = GROUPS.filter((g) => byKind(g.kind).length > 0);
           const d = await r.json();
           if (!d.items?.length) continue;
           render(d.items);
+          applyFilter();
           const live = url.includes("functions");
           const el = document.getElementById("ing-updated");
           if (el)
@@ -124,6 +133,30 @@ const groups = GROUPS.filter((g) => byKind(g.kind).length > 0);
         }
       }
     }
+
+    // Text filter over the listed files (re-applied after each live re-render).
+    const searchEl = document.getElementById("ing-search") as HTMLInputElement | null;
+    function applyFilter() {
+      const q = (searchEl?.value || "").trim().toLowerCase();
+      const root = document.getElementById("ing-groups");
+      if (!root) return;
+      let any = false;
+      root.querySelectorAll<HTMLElement>(".ing-group").forEach((g) => {
+        let groupAny = false;
+        g.querySelectorAll<HTMLElement>(".ing-list > li").forEach((li) => {
+          const show = !q || (li.textContent || "").toLowerCase().includes(q);
+          li.hidden = !show;
+          if (show) groupAny = true;
+        });
+        g.hidden = !groupAny;
+        if (groupAny) any = true;
+      });
+      const empty = document.getElementById("ing-empty");
+      if (empty) empty.hidden = any;
+    }
+    searchEl?.addEventListener("input", applyFilter);
+
+    applyFilter(); // filter the server-rendered list immediately
     load();
   })();
 </script>
@@ -132,8 +165,33 @@ const groups = GROUPS.filter((g) => byKind(g.kind).length > 0);
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
 
-  .ing-top { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 28px; }
+  .ing-top { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
   .ing-updated { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+
+  .ing-search {
+    width: 100%;
+    max-width: 720px;
+    font-family: var(--font-body);
+    font-size: 14px;
+    padding: 11px 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--card);
+    color: var(--text);
+    margin-bottom: 24px;
+  }
+  .ing-search:focus { outline: none; border-color: var(--gold); }
+
+  .ing-empty {
+    font-size: 14px;
+    color: var(--muted);
+    background: var(--card);
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    max-width: 720px;
+  }
 
   /* Global so the client-side re-rendered list (injected via innerHTML, without
      Astro's scope attribute) is styled the same as the server-rendered one. */

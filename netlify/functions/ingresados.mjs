@@ -47,11 +47,14 @@ export default async () => {
         name = name.replace(/\\(.)/g, "$1").trim();
         seen.set(id, name);
       }
-      items = [...seen].map(([id, name]) => ({
-        name,
-        url: `https://drive.google.com/open?id=${id}`,
-        kind: kindOf(name),
-      }));
+      items = [...seen]
+        .map(([id, name]) => ({
+          name,
+          url: `https://drive.google.com/open?id=${id}`,
+          kind: kindOf(name),
+        }))
+        // The person-search link lives in the "Servicios" tab, not here.
+        .filter((i) => i.kind !== "busqueda");
       items.sort((a, b) =>
         ORDER[a.kind] - ORDER[b.kind] || a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
       );

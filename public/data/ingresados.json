@@ -1,7 +1,7 @@
 {
   "folderName": "SISMO 2026 VZLA",
   "folderUrl": "https://drive.google.com/drive/folders/1o36ifaRz45kAs5rKzci49aD0mP5JB_YI",
-  "note": "Listados de personas ingresadas en hospitales tras el sismo, recopilados en Google Drive por fuentes solidarias. Los formatos varían (PDF, hojas de cálculo, carpetas). Cada enlace abre el archivo original en una pestaña nueva.",
+  "note": "Listados de personas ingresadas en hospitales tras el sismo, recopilados en Google Drive. Los formatos varían (PDF, hojas, carpetas). Cada enlace abre el archivo original en una pestaña nueva.",
   "items": [
     {
       "name": "Ingresos por sismo en Hospitales consolidado (1).pdf",
@@ -52,11 +52,6 @@
       "name": "HOSPITAL VARGAS DE CARACAS",
       "url": "https://drive.google.com/open?id=15s28bbAxuluxJbe-zb9KNJ_-ywn90qWT",
       "kind": "hospital"
-    },
-    {
-      "name": "LINK DE BUSQUEDA DE PERSONAS",
-      "url": "https://drive.google.com/open?id=16U7z2m_yvoHfHUEikpjXAJ1_K5yEOr9g",
-      "kind": "busqueda"
     },
     {
       "name": "1_5040023583598840087 (2).pdf",

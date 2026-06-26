@@ -4,6 +4,15 @@ interface Props {
   personalCount?: number;
 }
 const { acopiosCount = 0, personalCount = 0 } = Astro.props;
+
+// Link-preview metadata (Open Graph + Twitter cards). og:image must be an
+// absolute URL, so it's built from the configured `site`.
+const SITE =
+  Astro.site?.href.replace(/\/$/, "") ?? "https://aid-venezuela.netlify.app";
+const TITLE = "Ayuda Venezuela · Respuesta al terremoto";
+const DESC =
+  "Centros de acopio, ayuda profesional y un mapa con sismos en vivo para la respuesta al terremoto en Venezuela.";
+const OG_IMAGE = `${SITE}/og-image.png`;
 ---
 
 <!doctype html>
@@ -13,11 +22,24 @@ const { acopiosCount = 0, personalCount = 0 } = Astro.props;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="generator" content={Astro.generator} />
-    <meta
-      name="description"
-      content="Centros de acopio y ayuda profesional para la respuesta al terremoto en Venezuela."
-    />
-    <title>Ayuda Venezuela · Respuesta al terremoto</title>
+    <meta name="description" content={DESC} />
+    <title>{TITLE}</title>
+
+    <!-- Link previews (LinkedIn, Facebook, WhatsApp, X, etc.) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Ayuda Venezuela" />
+    <meta property="og:locale" content="es_VE" />
+    <meta property="og:title" content={TITLE} />
+    <meta property="og:description" content={DESC} />
+    <meta property="og:url" content={`${SITE}/`} />
+    <meta property="og:image" content={OG_IMAGE} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Ayuda Venezuela — Respuesta al terremoto" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={TITLE} />
+    <meta name="twitter:description" content={DESC} />
+    <meta name="twitter:image" content={OG_IMAGE} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

@@ -349,7 +349,7 @@ const entries = ready ? await getEntries() : [];
       function geocodeAddress() {
         const status = document.getElementById("geo-status");
         const g = (n) => (form.elements[n]?.value ?? "").trim();
-        if (!g("address")) return; // solo si hay dirección escrita
+        if (g("address").length < 4) return; // espera a tener algo buscable
         if (!geocoder || !pickMap) return;
         const query = [g("address"), g("city"), g("state"), g("country") || "Venezuela"]
           .filter(Boolean)
@@ -508,7 +508,13 @@ const entries = ready ? await getEntries() : [];
       }
 
       document.getElementById("new-btn").addEventListener("click", () => openForm(null));
-      form.elements.address.addEventListener("change", geocodeAddress);
+      // Búsqueda en tiempo real: geocodifica mientras se escribe, con debounce
+      // (~1 consulta cuando hay una pausa) para respetar el límite de Nominatim.
+      let geoTimer;
+      form.elements.address.addEventListener("input", () => {
+        clearTimeout(geoTimer);
+        geoTimer = setTimeout(geocodeAddress, 650);
+      });
       document.getElementById("save").addEventListener("click", save);
       document.getElementById("cancel").addEventListener("click", () => dlg.close());
       document.getElementById("copy-url").addEventListener("click", () => {

@@ -63,40 +63,66 @@ const entries = ready ? await getEntries() : [];
     }
 
     <section id="view-registros" class="view active">
-      <div class="view-tools">
-        <p class="count">
-          <span id="count">{entries.length}</span> registros ·
-          <span id="count-c">0</span> centros ·
-          <span id="count-p">0</span> profesionales
-        </p>
-        <button id="new-btn" type="button" class="btn primary">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-          Nuevo
-        </button>
-      </div>
-      <div class="filters">
-      <select id="f-category">
-        <option value="">Tipo: todos</option>
-        <option value="center">Centro</option>
-        <option value="professional">Profesional</option>
-      </select>
-      <select id="f-country"><option value="">País: todos</option></select>
-      <select id="f-state"><option value="">Estado: todos</option></select>
-      <select id="f-urgency">
-        <option value="">Urgencia: todas</option>
-        <option value="high">Alta</option>
-        <option value="medium">Media</option>
-        <option value="low">Baja</option>
-      </select>
-      <select id="f-org"><option value="">Organización: todas</option></select>
-      <input id="search" type="search" placeholder="Buscar texto…" />
-      <button type="button" id="f-clear" class="btn ghost">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
-        Limpiar
-      </button>
-      </div>
+      <div class="reg-layout">
+        <aside class="sidebar" id="filters-sidebar">
+          <div class="sidebar-head">
+            <h2>Filtros</h2>
+            <button type="button" id="f-clear" class="btn ghost">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+              Limpiar
+            </button>
+          </div>
+          <div class="filters">
+            <label>Búsqueda
+              <input id="search" type="search" placeholder="Título, organización…" />
+            </label>
+            <label>Tipo
+              <select id="f-category">
+                <option value="">Todos</option>
+                <option value="center">Centro</option>
+                <option value="professional">Profesional</option>
+              </select>
+            </label>
+            <label>País
+              <select id="f-country"><option value="">Todos</option></select>
+            </label>
+            <label>Estado
+              <select id="f-state"><option value="">Todos</option></select>
+            </label>
+            <label>Urgencia
+              <select id="f-urgency">
+                <option value="">Todas</option>
+                <option value="high">Alta</option>
+                <option value="medium">Media</option>
+                <option value="low">Baja</option>
+              </select>
+            </label>
+            <label>Organización
+              <select id="f-org"><option value="">Todas</option></select>
+            </label>
+          </div>
+        </aside>
 
-      <table>
+        <div class="main-col">
+          <div class="view-tools">
+            <div class="vt-left">
+              <button id="filters-toggle" type="button" class="btn ghost" aria-expanded="true" aria-controls="filters-sidebar">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18l-7 8v5l-4 2v-7z" /></svg>
+                Filtros
+              </button>
+              <p class="count">
+                <span id="count">{entries.length}</span> registros ·
+                <span id="count-c">0</span> centros ·
+                <span id="count-p">0</span> profesionales
+              </p>
+            </div>
+            <button id="new-btn" type="button" class="btn primary">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+              Nuevo
+            </button>
+          </div>
+
+          <table>
       <thead>
         <tr><th>Título</th><th>Organización</th><th>Tipo</th><th>Estado</th><th>Urgencia</th><th></th></tr>
       </thead>
@@ -136,6 +162,8 @@ const entries = ready ? await getEntries() : [];
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
       </button>
     </nav>
+        </div>
+      </div>
     </section>
 
     <section id="view-auditoria" class="view">
@@ -463,6 +491,14 @@ const entries = ready ? await getEntries() : [];
         setTimeout(() => (b.innerHTML = prev), 1500);
       });
 
+      // Sidebar de filtros desplegable
+      const regLayout = document.querySelector(".reg-layout");
+      const filtersToggle = document.getElementById("filters-toggle");
+      filtersToggle.addEventListener("click", () => {
+        const hidden = regLayout.classList.toggle("filters-hidden");
+        filtersToggle.setAttribute("aria-expanded", String(!hidden));
+      });
+
       // Filas repetibles: agregar / quitar
       document.querySelector('[data-add="person"]').addEventListener("click", () => addPerson());
       document.querySelector('[data-add="cp"]').addEventListener("click", () => addCp());
@@ -664,10 +700,30 @@ const entries = ready ? await getEntries() : [];
       .btn:disabled { opacity: 0.45; cursor: default; }
       .btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
-      .filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 20px; align-items: center; }
-      .filters select, .filters input { font-family: var(--font-body); font-size: 13px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--card); color: var(--text); }
+      /* Registros: layout con sidebar de filtros desplegable */
+      .reg-layout { display: flex; gap: 18px; align-items: flex-start; padding: 16px 20px 0; }
+      .sidebar { flex: 0 0 230px; position: sticky; top: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+      .sidebar-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+      .sidebar-head h2 { font-family: var(--font-display); font-weight: 800; font-size: 15px; color: var(--ink); margin: 0; }
+      .sidebar-head .btn { font-size: 12px; padding: 6px 10px; }
+      .main-col { flex: 1; min-width: 0; }
+      .reg-layout.filters-hidden .sidebar { display: none; }
+      .main-col .view-tools { margin: 0 0 14px; }
+      .main-col table { width: 100%; margin: 0 0 16px; }
+      .main-col .pager { margin: 8px 0 0; }
+      .vt-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+      .filters { display: flex; flex-direction: column; gap: 12px; margin: 0; }
+      .filters label { gap: 5px; }
+      .filters select, .filters input { width: 100%; font-family: var(--font-body); font-size: 13px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--card); color: var(--text); text-transform: none; }
       .filters select:focus, .filters input:focus { outline: none; border-color: var(--gold); }
-      .filters #search { flex: 1; min-width: 180px; }
+
+      @media (max-width: 820px) {
+        .reg-layout { flex-direction: column; }
+        .sidebar { position: static; flex: none; width: 100%; }
+        .filters { flex-direction: row; flex-wrap: wrap; }
+        .filters label { flex: 1; min-width: 150px; }
+      }
 
       .count { margin: 12px 20px; font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
       .count #count { color: var(--ink); font-weight: 700; }

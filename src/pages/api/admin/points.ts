@@ -10,12 +10,24 @@ export const GET: APIRoute = async ({ request }) => {
   return Response.json(await getEntries());
 };
 
+const slug = (s: string) =>
+  (s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+
 export const POST: APIRoute = async ({ request }) => {
   if (!checkAdmin(request)) return new Response("Unauthorized", { status: 401 });
   try {
     const body = await request.json();
-    if (!body?.filename) throw new Error("Falta 'filename'");
-    if (!body?.title) throw new Error("Falta 'title'");
+    if (!body?.title) throw new Error("Falta el título");
+    // Centers no longer need images, so the identifier is auto-generated.
+    if (!body.filename) {
+      body.filename = "reg-" + (slug(body.title) || "centro") + "-" + Math.random().toString(36).slice(2, 7);
+    }
     await writePoint(body);
     return Response.json({ ok: true });
   } catch (e: any) {

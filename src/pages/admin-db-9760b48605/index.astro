@@ -54,9 +54,9 @@ const entries = ready ? await getEntries() : [];
             <tr data-filename={e.filename}>
               <td>{e.title}</td>
               <td>{e.organization ?? "—"}</td>
-              <td>{e.category}</td>
+              <td>{e.category === "center" ? "Centro" : "Profesional"}</td>
               <td>{e.location?.state || "—"}</td>
-              <td>{e.urgency ?? "—"}</td>
+              <td>{{ high: "Alta", medium: "Media", low: "Baja" }[e.urgency ?? ""] ?? "—"}</td>
               <td class="actions">
                 <button type="button" class="edit" data-filename={e.filename}>Editar</button>
                 <button type="button" class="del" data-filename={e.filename}>Borrar</button>
@@ -72,19 +72,19 @@ const entries = ready ? await getEntries() : [];
       <form id="form" method="dialog">
         <h2 id="form-title">Nuevo registro</h2>
         <div class="grid">
-          <label>Filename * <input name="filename" required placeholder="cen-xxx.png" /></label>
+          <label>Identificador <input name="filename" placeholder="(automático si lo dejas vacío)" /></label>
           <label>Categoría
             <select name="category">
-              <option value="center">center</option>
-              <option value="professional">professional</option>
+              <option value="center">Centro</option>
+              <option value="professional">Profesional</option>
             </select>
           </label>
           <label>Urgencia
             <select name="urgency">
               <option value="">—</option>
-              <option value="high">high</option>
-              <option value="medium">medium</option>
-              <option value="low">low</option>
+              <option value="high">Alta</option>
+              <option value="medium">Media</option>
+              <option value="low">Baja</option>
             </select>
           </label>
           <label class="wide">Título * <input name="title" required /></label>
@@ -94,8 +94,8 @@ const entries = ready ? await getEntries() : [];
           <label>Estado <input name="state" /></label>
           <label>Ciudad <input name="city" /></label>
           <label class="wide">Dirección <input name="address" /></label>
-          <label>Lat <input name="lat" type="number" step="any" /></label>
-          <label>Lng <input name="lng" type="number" step="any" /></label>
+          <label>Latitud <input name="lat" type="number" step="any" /></label>
+          <label>Longitud <input name="lng" type="number" step="any" /></label>
           <label class="wide">Horario <input name="schedule" /></label>
           <label class="wide">Descripción <textarea name="description" rows="2"></textarea></label>
           <label class="wide">Necesidades (una por línea) <textarea name="needs" rows="3"></textarea></label>
@@ -107,13 +107,13 @@ const entries = ready ? await getEntries() : [];
               <label>WhatsApp <input name="c_whatsapp" /></label>
               <label>Instagram <input name="c_instagram" /></label>
               <label>Web <input name="c_website" /></label>
-              <label>Email <input name="c_email" /></label>
+              <label>Correo <input name="c_email" /></label>
             </div>
           </fieldset>
-          <label class="wide">people (JSON) <textarea name="people" rows="3" placeholder='[{"name":"...","contact":"..."}]'></textarea></label>
-          <label class="wide">collectionPoints (JSON) <textarea name="collectionPoints" rows="3" placeholder='[{"state":"...","location":"..."}]'></textarea></label>
+          <label class="wide">Personas (JSON) <textarea name="people" rows="3" placeholder='[{"name":"...","contact":"..."}]'></textarea></label>
+          <label class="wide">Puntos de recolección (JSON) <textarea name="collectionPoints" rows="3" placeholder='[{"state":"...","location":"..."}]'></textarea></label>
           <label class="wide">Notas <textarea name="notes" rows="2"></textarea></label>
-          <label>source <input name="source" /></label>
+          <label>Origen <input name="source" /></label>
         </div>
         <p class="form-status" id="form-status"></p>
         <div class="form-actions">
@@ -136,6 +136,9 @@ const entries = ready ? await getEntries() : [];
         return TOKEN;
       }
       function clearToken() { TOKEN = ""; sessionStorage.removeItem("adminToken"); }
+      const slug = (s) => (s || "").toLowerCase().normalize("NFD")
+        .replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "").slice(0, 40);
       const byName = Object.fromEntries(ENTRIES.map((e) => [e.filename, e]));
       const dlg = document.getElementById("editor");
       const form = document.getElementById("form");
@@ -200,10 +203,13 @@ const entries = ready ? await getEntries() : [];
       }
 
       async function save() {
-        if (!ensureToken()) return;
         statusEl.textContent = "Guardando…";
         let payload;
-        try { payload = collect(); } catch (err) { statusEl.textContent = "JSON inválido en people/collectionPoints"; return; }
+        try { payload = collect(); } catch (err) { statusEl.textContent = "JSON inválido en Personas / Puntos de recolección"; return; }
+        // Los centros ya no usan imágenes: el identificador se genera solo.
+        if (mode === "create" && !payload.filename) {
+          payload.filename = "reg-" + (slug(payload.title) || "centro") + "-" + Math.random().toString(36).slice(2, 7);
+        }
         const url = mode === "create" ? "/api/admin/points" : "/api/admin/points/" + encodeURIComponent(editingName);
         try {
           const r = await fetch(url, {
@@ -211,19 +217,18 @@ const entries = ready ? await getEntries() : [];
             headers: { "content-type": "application/json", "x-admin-token": TOKEN },
             body: JSON.stringify(payload),
           });
-          if (r.status === 401) { clearToken(); statusEl.textContent = "Token inválido. Volvé a intentar."; return; }
+          if (r.status === 401) { clearToken(); alert("Token inválido. Recarga la página."); location.reload(); return; }
           if (!r.ok) { statusEl.textContent = "Error: " + (await r.text()); return; }
           location.reload();
         } catch (err) { statusEl.textContent = "Error de red"; }
       }
 
       async function del(filename) {
-        if (!ensureToken()) return;
         if (!confirm("¿Borrar «" + filename + "»? Esto afecta la base en vivo.")) return;
         const r = await fetch("/api/admin/points/" + encodeURIComponent(filename), {
           method: "DELETE", headers: { "x-admin-token": TOKEN },
         });
-        if (r.status === 401) { clearToken(); alert("Token inválido."); return; }
+        if (r.status === 401) { clearToken(); alert("Token inválido. Recarga la página."); location.reload(); return; }
         if (r.ok) location.reload(); else alert("Error: " + (await r.text()));
       }
 
@@ -253,6 +258,24 @@ const entries = ready ? await getEntries() : [];
         });
         document.getElementById("count").textContent = n;
       });
+
+      // Pide el token al ENTRAR a la página (una sola vez) y lo valida contra la
+      // API. Una vez validado, guardar/borrar no vuelven a pedirlo.
+      (async function gate() {
+        for (;;) {
+          if (!ensureToken()) {
+            document.body.innerHTML =
+              '<p style="padding:40px;font-family:system-ui">Token requerido. Recarga la página para reintentar.</p>';
+            return;
+          }
+          try {
+            const r = await fetch("/api/admin/points", { headers: { "x-admin-token": TOKEN } });
+            if (r.ok) return;
+          } catch {}
+          clearToken();
+          alert("Token inválido.");
+        }
+      })();
     </script>
 
     <style>

@@ -11,8 +11,20 @@ import IngresadosTab from "../components/IngresadosTab.astro";
 import { expandCenters } from "../lib/centers";
 import { getEntries } from "../lib/db";
 
+// On-demand (not prerendered) so admin changes show instantly — every visit
+// reads the live DB instead of a build-time snapshot.
+export const prerender = false;
+
 // From the Prisma DB when configured, otherwise the static images.json.
 const entries = await getEntries();
+
+// Near-instant + DB-friendly: the CDN may serve a cached copy for a few seconds
+// and revalidate in the background, so changes appear within ~10s without a DB
+// hit on every single visit.
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, max-age=0, s-maxage=10, stale-while-revalidate=60",
+);
 // Multi-state compilations (e.g. the nationwide flyer) are split so each point
 // lands under its real state in the list.
 const centers = expandCenters(entries.filter((e) => e.category === "center"));

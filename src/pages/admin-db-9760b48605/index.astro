@@ -523,7 +523,10 @@ const entries = ready ? await getEntries() : [];
           tb.innerHTML = rows.map((a) => {
             const when = new Date(a.createdAt).toLocaleString("es-VE");
             const ua = (a.userAgent || "").replace(/\s*\(.*$/, "").slice(0, 40);
-            return `<tr><td>${esc(when)}</td>` +
+            const exists = !!byName[a.filename];
+            const cls = exists ? "linked" : "gone";
+            const tip = exists ? "Abrir para editar" : "Este registro ya no existe";
+            return `<tr data-fn="${esc(a.filename)}" class="${cls}" title="${tip}"><td>${esc(when)}</td>` +
               `<td><span class="tag a-${esc(a.action)}">${ACT[a.action] || esc(a.action)}</span></td>` +
               `<td>${esc(a.title || a.filename)}</td><td>${esc(a.ip || "—")}</td>` +
               `<td>${esc(a.country || "—")}</td><td>${esc(ua || "—")}</td></tr>`;
@@ -540,6 +543,14 @@ const entries = ready ? await getEntries() : [];
         });
       });
       document.getElementById("audit-refresh").addEventListener("click", loadAudit);
+      // Clic en una fila de auditoría → abre el editor de ese registro.
+      document.getElementById("audit-rows").addEventListener("click", (ev) => {
+        const tr = ev.target.closest("tr[data-fn]");
+        if (!tr) return;
+        const entry = byName[tr.dataset.fn];
+        if (entry) openForm(entry);
+        else alert("Este registro ya no existe (fue borrado).");
+      });
       // ---- Tabla renderizada en JS: filtros (como la vista pública),
       // paginación (10/pág) y refresco sin recargar el navegador ----
       const PER_PAGE = 10;
@@ -806,6 +817,9 @@ const entries = ready ? await getEntries() : [];
       .audit-table th { position: sticky; top: 0; background: var(--ink); color: #fff; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.05em; text-transform: uppercase; text-align: left; padding: 9px 10px; }
       .audit-table td { font-size: 12.5px; padding: 8px 10px; border-bottom: 1px solid #eef0f4; white-space: nowrap; color: var(--text); }
       .audit-table td:nth-child(3) { white-space: normal; }
+      .audit-table tbody tr.linked { cursor: pointer; }
+      .audit-table tbody tr.linked:hover td { background: #f6f8fb; }
+      .audit-table tbody tr.gone td { color: #9aa3b0; }
       .a-create { color: #2f7d32; border-color: #cde8cf; background: #eef6ee; }
       .a-update { color: var(--gold-deep); border-color: #f0dcb4; background: #fbf3e3; }
       .a-delete { color: var(--urgent); border-color: #f5cccc; background: #fef2f2; }

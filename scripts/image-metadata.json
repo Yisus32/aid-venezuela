@@ -101,6 +101,49 @@
       "Productos de higiene personal"
     ]
   },
+  "cen-tc-sc-villaventura_academy.png": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Centro de Acopio para niños - Villaventura Academy",
+    "organization": "Villaventura Academy",
+    "description": "Centro de acopio para niños. Además del Proyecto Rayo de Luz para cuidar sus emociones con juegos y mensajes de esperanza.",
+    "location": {
+      "country": "Venezuela",
+      "state": "Táchira",
+      "city": "San Cristóbal",
+      "address": "Villaventura Academy (Academia LEGO), casa profesor UNET, San Cristóbal"
+    },
+    "coords": { "lat": 7.776, "lng": -72.224 },
+    "needs": [
+      "Ropa para niños",
+      "Artículos de higiene",
+      "Alimentos sin gluten",
+      "Curitas",
+      "Juguetes y juegos didácticos",
+      "Legos",
+      "Libros para colorear",
+      "Colores",
+      "Cartas con mensajes de esperanza"
+    ],
+    "contact": { "phone": "0414-0759129 / 0412-7034593" }
+  },
+  "cen-cagua-sol_y_sombra.png": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Colecta de Insumos - Promoción XXIV",
+    "organization": "Promoción XXIV",
+    "description": "Colecta de insumos médicos y de primera necesidad. Tu ayuda salva vidas.",
+    "location": {
+      "country": "Venezuela",
+      "state": "Aragua",
+      "city": "Cagua",
+      "address": "Sol y Sombra, Cagua"
+    },
+    "coords": { "lat": 10.187, "lng": -67.463 },
+    "schedule": "27/06/2026, a partir de las 7:30 am",
+    "needs": ["Insumos médicos", "Artículos de primera necesidad"],
+    "notes": "Algunos detalles de insumos no son del todo legibles en el aviso original."
+  },
   "cen-tac-sc-uptaiet.png": {
     "category": "center",
     "urgency": "high",

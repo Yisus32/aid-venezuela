@@ -405,6 +405,34 @@
       "source": "locations.md"
     },
     {
+      "filename": "cen-cagua-sol_y_sombra.png",
+      "path": "/images/center/venezuela/aragua/cen-cagua-sol_y_sombra.png",
+      "format": "png",
+      "fileSize": 558938,
+      "code": "cagua-sol_y_sombra",
+      "category": "center",
+      "urgency": "medium",
+      "title": "Colecta de Insumos - Promoción XXIV",
+      "organization": "Promoción XXIV",
+      "description": "Colecta de insumos médicos y de primera necesidad. Tu ayuda salva vidas.",
+      "location": {
+        "country": "Venezuela",
+        "state": "Aragua",
+        "city": "Cagua",
+        "address": "Sol y Sombra, Cagua"
+      },
+      "coords": {
+        "lat": 10.187,
+        "lng": -67.463
+      },
+      "schedule": "27/06/2026, a partir de las 7:30 am",
+      "needs": [
+        "Insumos médicos",
+        "Artículos de primera necesidad"
+      ],
+      "notes": "Algunos detalles de insumos no son del todo legibles en el aviso original."
+    },
+    {
       "filename": "cen-cga.webp",
       "path": "/images/center/venezuela/aragua/cen-cga.webp",
       "format": "webp",
@@ -636,6 +664,42 @@
         "Bolsas plásticas",
         "Pañales para niños y adultos",
         "Alimentos para mascotas"
+      ]
+    },
+    {
+      "filename": "cen-tc-sc-villaventura_academy.png",
+      "path": "/images/center/venezuela/tachira/cen-tc-sc-villaventura_academy.png",
+      "format": "png",
+      "fileSize": 2044493,
+      "code": "tc-sc-villaventura_academy",
+      "category": "center",
+      "urgency": "medium",
+      "title": "Centro de Acopio para niños - Villaventura Academy",
+      "organization": "Villaventura Academy",
+      "description": "Centro de acopio para niños. Además del Proyecto Rayo de Luz para cuidar sus emociones con juegos y mensajes de esperanza.",
+      "location": {
+        "country": "Venezuela",
+        "state": "Táchira",
+        "city": "San Cristóbal",
+        "address": "Villaventura Academy (Academia LEGO), casa profesor UNET, San Cristóbal"
+      },
+      "coords": {
+        "lat": 7.776,
+        "lng": -72.224
+      },
+      "contact": {
+        "phone": "0414-0759129 / 0412-7034593"
+      },
+      "needs": [
+        "Ropa para niños",
+        "Artículos de higiene",
+        "Alimentos sin gluten",
+        "Curitas",
+        "Juguetes y juegos didácticos",
+        "Legos",
+        "Libros para colorear",
+        "Colores",
+        "Cartas con mensajes de esperanza"
       ]
     },
     {
@@ -1159,5 +1223,5 @@
       "notes": "Para solicitar la atención, escribir vía mensaje de texto o WhatsApp."
     }
   ],
-  "generatedAt": "2026-06-26T18:30:10.023Z"
+  "generatedAt": "2026-06-26T19:24:38.150Z"
 }

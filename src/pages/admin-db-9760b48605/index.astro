@@ -203,8 +203,22 @@ const entries = ready ? await getEntries() : [];
               <label>Correo <input name="c_email" /></label>
             </div>
           </fieldset>
-          <label class="wide">Personas (JSON) <textarea name="people" rows="3" placeholder='[{"name":"...","contact":"..."}]'></textarea></label>
-          <label class="wide">Puntos de recolección (JSON) <textarea name="collectionPoints" rows="3" placeholder='[{"state":"...","location":"..."}]'></textarea></label>
+          <fieldset class="wide repeat">
+            <legend>Personas</legend>
+            <div id="people-list" class="rrows"></div>
+            <button type="button" class="btn ghost add-row" data-add="person">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+              Agregar persona
+            </button>
+          </fieldset>
+          <fieldset class="wide repeat">
+            <legend>Puntos de recolección</legend>
+            <div id="cp-list" class="rrows"></div>
+            <button type="button" class="btn ghost add-row" data-add="cp">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+              Agregar punto
+            </button>
+          </fieldset>
           <label class="wide">Notas <textarea name="notes" rows="2"></textarea></label>
           <label>Origen <input name="source" /></label>
         </div>
@@ -299,6 +313,58 @@ const entries = ready ? await getEntries() : [];
         }, 90);
       }
 
+      // ---- Personas / Puntos de recolección: filas repetibles (no JSON) ----
+      const PERSON_FIELDS = [
+        { k: "name", ph: "Nombre" },
+        { k: "specialty", ph: "Especialidad" },
+        { k: "registry", ph: "Registro" },
+        { k: "contact", ph: "Contacto (tel., correo…)" },
+      ];
+      const CP_FIELDS = [
+        { k: "state", ph: "Estado" },
+        { k: "location", ph: "Ubicación / dirección" },
+      ];
+      const TRASH_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>';
+      function repeatRow(fields, data) {
+        const row = document.createElement("div");
+        row.className = "rrow";
+        for (const f of fields) {
+          const inp = document.createElement("input");
+          inp.placeholder = f.ph;
+          inp.dataset.k = f.k;
+          inp.value = (data && data[f.k]) || "";
+          row.appendChild(inp);
+        }
+        const del = document.createElement("button");
+        del.type = "button";
+        del.className = "icon-btn danger row-del";
+        del.title = "Quitar";
+        del.setAttribute("aria-label", "Quitar");
+        del.innerHTML = TRASH_SVG;
+        row.appendChild(del);
+        return row;
+      }
+      function addPerson(p) { document.getElementById("people-list").appendChild(repeatRow(PERSON_FIELDS, p)); }
+      function addCp(c) { document.getElementById("cp-list").appendChild(repeatRow(CP_FIELDS, c)); }
+      function setRepeats(entry) {
+        document.getElementById("people-list").innerHTML = "";
+        document.getElementById("cp-list").innerHTML = "";
+        (entry?.people || []).forEach(addPerson);
+        (entry?.collectionPoints || []).forEach(addCp);
+      }
+      function readRepeat(listId, fields, required) {
+        return [...document.querySelectorAll("#" + listId + " .rrow")]
+          .map((row) => {
+            const obj = {};
+            for (const f of fields) {
+              const v = row.querySelector('[data-k="' + f.k + '"]').value.trim();
+              if (v) obj[f.k] = v;
+            }
+            return obj;
+          })
+          .filter((o) => o[required]);
+      }
+
       function openForm(entry) {
         form.reset();
         statusEl.textContent = "";
@@ -318,13 +384,12 @@ const entries = ready ? await getEntries() : [];
           form.elements.acceptsMonetary.checked = !!entry.acceptsMonetary;
           const c = entry.contact || {};
           ["phone","whatsapp","instagram","website","email"].forEach((k) => setv("c_" + k, c[k]));
-          setv("people", entry.people ? JSON.stringify(entry.people, null, 1) : "");
-          setv("collectionPoints", entry.collectionPoints ? JSON.stringify(entry.collectionPoints, null, 1) : "");
         } else {
           mode = "create"; editingName = null;
           document.getElementById("form-title").textContent = "Nuevo registro";
           form.elements.filename.readOnly = false;
         }
+        setRepeats(entry);
         dlg.showModal();
         syncMap();
       }
@@ -349,15 +414,17 @@ const entries = ready ? await getEntries() : [];
         const c = {};
         ["phone","whatsapp","instagram","website","email"].forEach((k) => { const v = g("c_" + k); if (v) c[k] = v; });
         if (Object.keys(c).length) e.contact = c;
-        const ppl = g("people"); if (ppl) e.people = JSON.parse(ppl);
-        const cps = g("collectionPoints"); if (cps) e.collectionPoints = JSON.parse(cps);
+        const people = readRepeat("people-list", PERSON_FIELDS, "name");
+        if (people.length) e.people = people;
+        const cps = readRepeat("cp-list", CP_FIELDS, "location");
+        if (cps.length) e.collectionPoints = cps;
         return e;
       }
 
       async function save() {
         statusEl.textContent = "Guardando…";
         let payload;
-        try { payload = collect(); } catch (err) { statusEl.textContent = "JSON inválido en Personas / Puntos de recolección"; return; }
+        try { payload = collect(); } catch (err) { statusEl.textContent = "No se pudieron leer los datos del formulario."; return; }
         // Los centros ya no usan imágenes: el identificador se genera solo.
         if (mode === "create" && !payload.filename) {
           payload.filename = "reg-" + (slug(payload.title) || "centro") + "-" + Math.random().toString(36).slice(2, 7);
@@ -395,6 +462,16 @@ const entries = ready ? await getEntries() : [];
         b.textContent = "¡Copiado!";
         setTimeout(() => (b.innerHTML = prev), 1500);
       });
+
+      // Filas repetibles: agregar / quitar
+      document.querySelector('[data-add="person"]').addEventListener("click", () => addPerson());
+      document.querySelector('[data-add="cp"]').addEventListener("click", () => addCp());
+      ["people-list", "cp-list"].forEach((id) =>
+        document.getElementById(id).addEventListener("click", (e) => {
+          const b = e.target.closest(".row-del");
+          if (b) b.closest(".rrow").remove();
+        }),
+      );
 
       // ---- Vistas (navbar): Registros / Auditoría ----
       const ACT = { create: "Creó", update: "Editó", delete: "Borró" };
@@ -641,6 +718,15 @@ const entries = ready ? await getEntries() : [];
       legend { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 0 6px; }
       .form-status { color: var(--urgent); font-size: 13px; min-height: 18px; }
       .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+      .repeat { padding: 10px 12px 12px; }
+      .rrows { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+      .rrow { display: flex; gap: 6px; align-items: center; }
+      .rrow input { flex: 1; min-width: 0; font-size: 13px; padding: 8px 10px; }
+      .rrow .icon-btn { flex-shrink: 0; width: 30px; height: 30px; margin-left: 0; }
+      .add-row { font-size: 12px; padding: 7px 12px; }
+      .add-row svg { width: 14px; height: 14px; }
+      .repeat .rrows:empty::before { content: "Sin elementos. Usa el botón para agregar."; font-size: 12px; color: var(--muted); }
 
       .tabs { display: flex; gap: 2px; padding: 0 20px; margin-top: 6px; border-bottom: 1px solid var(--line); }
       .tab {

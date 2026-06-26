@@ -189,7 +189,6 @@ const entries = ready ? await getEntries() : [];
       <form id="form" method="dialog">
         <h2 id="form-title">Nuevo registro</h2>
         <div class="grid">
-          <label>Identificador <input name="filename" placeholder="(automático si lo dejas vacío)" /></label>
           <label>Categoría
             <select name="category">
               <option value="center">Centro</option>
@@ -398,9 +397,7 @@ const entries = ready ? await getEntries() : [];
         statusEl.textContent = "";
         if (entry) {
           mode = "edit"; editingName = entry.filename;
-          document.getElementById("form-title").textContent = "Editar: " + entry.filename;
-          form.elements.filename.value = entry.filename;
-          form.elements.filename.readOnly = true;
+          document.getElementById("form-title").textContent = "Editar: " + (entry.title || entry.filename);
           setv("category", entry.category); setv("urgency", entry.urgency);
           setv("title", entry.title); setv("organization", entry.organization);
           setv("specialty", entry.specialty); setv("description", entry.description);
@@ -415,7 +412,6 @@ const entries = ready ? await getEntries() : [];
         } else {
           mode = "create"; editingName = null;
           document.getElementById("form-title").textContent = "Nuevo registro";
-          form.elements.filename.readOnly = false;
         }
         setRepeats(entry);
         dlg.showModal();

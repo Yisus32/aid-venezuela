@@ -1,10 +1,12 @@
 import { defineConfig } from "prisma/config";
 
-// AID-09: Prisma 7 moves the Migrate connection URL out of schema.prisma.
-// Set DATABASE_URL in the environment (or a .env file) before running
-// `npx prisma migrate deploy`. The runtime PrismaClient (scripts/seed-db.mjs
-// and any API routes) needs a driver adapter or Accelerate URL per Prisma 7 —
-// finalize that when the Prisma Compute database is provisioned.
+// AID-09: Prisma 7 moves the Migrate/DB-push connection URL out of
+// schema.prisma to here. Uses the DIRECT (non-pooled) connection — migrations
+// and DDL must not go through the serverless pooler. The runtime app uses the
+// pooled DATABASE_URL via the driver adapter in src/lib/prisma.ts.
 export default defineConfig({
   schema: "prisma/schema.prisma",
+  datasource: {
+    url: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
+  },
 });

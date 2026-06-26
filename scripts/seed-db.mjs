@@ -11,8 +11,15 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 async function main() {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    console.error("Set DATABASE_URL before seeding. Aborting.");
+    process.exit(1);
+  }
   const { PrismaClient } = await import("@prisma/client");
-  const prisma = new PrismaClient();
+  const { PrismaPg } = await import("@prisma/adapter-pg");
+  const adapter = new PrismaPg({ connectionString });
+  const prisma = new PrismaClient({ adapter });
 
   const db = JSON.parse(
     readFileSync(join(__dirname, "..", "public", "images.json"), "utf-8"),

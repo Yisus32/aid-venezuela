@@ -1,0 +1,291 @@
+---
+// AID-09: hidden admin CRUD. On-demand (not prerendered), at an unguessable
+// URL, guarded by ADMIN_TOKEN on the API. NOT linked anywhere in the site.
+export const prerender = false;
+
+import { getEntries, dbAvailable } from "../../lib/db";
+
+const token = process.env.ADMIN_TOKEN ?? "";
+const ready = dbAvailable() && !!token;
+const entries = ready ? await getEntries() : [];
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Admin · Ayuda Venezuela</title>
+  </head>
+  <body>
+    <div class="warn">
+      ⚠️ Página de administración — manéjala con cuidado. Los cambios afectan la
+      base de datos en vivo.
+    </div>
+
+    <header class="bar">
+      <h1>Admin · Centros y profesionales</h1>
+      <div class="bar-actions">
+        <button id="copy-url" type="button">Copiar URL</button>
+        <button id="new-btn" type="button" class="primary">+ Nuevo</button>
+      </div>
+    </header>
+
+    {
+      !ready && (
+        <p class="nodb">
+          La base de datos no está configurada (falta <code>DATABASE_URL</code> o{" "}
+          <code>ADMIN_TOKEN</code>). Configúralas para administrar registros.
+        </p>
+      )
+    }
+
+    <input id="search" type="search" placeholder="Buscar por título, organización, estado…" />
+    <p class="count"><span id="count">{entries.length}</span> registros</p>
+
+    <table>
+      <thead>
+        <tr><th>Título</th><th>Organización</th><th>Tipo</th><th>Estado</th><th>Urgencia</th><th></th></tr>
+      </thead>
+      <tbody id="rows">
+        {
+          entries.map((e) => (
+            <tr data-filename={e.filename}>
+              <td>{e.title}</td>
+              <td>{e.organization ?? "—"}</td>
+              <td>{e.category}</td>
+              <td>{e.location?.state || "—"}</td>
+              <td>{e.urgency ?? "—"}</td>
+              <td class="actions">
+                <button type="button" class="edit" data-filename={e.filename}>Editar</button>
+                <button type="button" class="del" data-filename={e.filename}>Borrar</button>
+              </td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+
+    <!-- Editor -->
+    <dialog id="editor">
+      <form id="form" method="dialog">
+        <h2 id="form-title">Nuevo registro</h2>
+        <div class="grid">
+          <label>Filename * <input name="filename" required placeholder="cen-xxx.png" /></label>
+          <label>Categoría
+            <select name="category">
+              <option value="center">center</option>
+              <option value="professional">professional</option>
+            </select>
+          </label>
+          <label>Urgencia
+            <select name="urgency">
+              <option value="">—</option>
+              <option value="high">high</option>
+              <option value="medium">medium</option>
+              <option value="low">low</option>
+            </select>
+          </label>
+          <label class="wide">Título * <input name="title" required /></label>
+          <label class="wide">Organización <input name="organization" /></label>
+          <label>Especialidad <input name="specialty" /></label>
+          <label>País <input name="country" value="Venezuela" /></label>
+          <label>Estado <input name="state" /></label>
+          <label>Ciudad <input name="city" /></label>
+          <label class="wide">Dirección <input name="address" /></label>
+          <label>Lat <input name="lat" type="number" step="any" /></label>
+          <label>Lng <input name="lng" type="number" step="any" /></label>
+          <label class="wide">Horario <input name="schedule" /></label>
+          <label class="wide">Descripción <textarea name="description" rows="2"></textarea></label>
+          <label class="wide">Necesidades (una por línea) <textarea name="needs" rows="3"></textarea></label>
+          <label class="check"><input type="checkbox" name="acceptsMonetary" /> Acepta donación monetaria</label>
+          <fieldset class="wide">
+            <legend>Contacto</legend>
+            <div class="grid">
+              <label>Teléfono <input name="c_phone" /></label>
+              <label>WhatsApp <input name="c_whatsapp" /></label>
+              <label>Instagram <input name="c_instagram" /></label>
+              <label>Web <input name="c_website" /></label>
+              <label>Email <input name="c_email" /></label>
+            </div>
+          </fieldset>
+          <label class="wide">people (JSON) <textarea name="people" rows="3" placeholder='[{"name":"...","contact":"..."}]'></textarea></label>
+          <label class="wide">collectionPoints (JSON) <textarea name="collectionPoints" rows="3" placeholder='[{"state":"...","location":"..."}]'></textarea></label>
+          <label class="wide">Notas <textarea name="notes" rows="2"></textarea></label>
+          <label>source <input name="source" /></label>
+        </div>
+        <p class="form-status" id="form-status"></p>
+        <div class="form-actions">
+          <button type="button" id="cancel">Cancelar</button>
+          <button type="button" id="save" class="primary">Guardar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script is:inline define:vars={{ ENTRIES: entries }}>
+      // The repo is public, so the admin URL is discoverable. The token is NOT
+      // embedded in the page — the admin enters it once (kept in sessionStorage)
+      // and it only ever lives in Netlify env + the request header.
+      let TOKEN = sessionStorage.getItem("adminToken") || "";
+      function ensureToken() {
+        if (!TOKEN) {
+          TOKEN = (prompt("Token de administración:") || "").trim();
+          if (TOKEN) sessionStorage.setItem("adminToken", TOKEN);
+        }
+        return TOKEN;
+      }
+      function clearToken() { TOKEN = ""; sessionStorage.removeItem("adminToken"); }
+      const byName = Object.fromEntries(ENTRIES.map((e) => [e.filename, e]));
+      const dlg = document.getElementById("editor");
+      const form = document.getElementById("form");
+      const statusEl = document.getElementById("form-status");
+      let mode = "create";
+      let editingName = null;
+
+      const setv = (n, v) => { const el = form.elements[n]; if (el) el.value = v ?? ""; };
+
+      function openForm(entry) {
+        form.reset();
+        statusEl.textContent = "";
+        if (entry) {
+          mode = "edit"; editingName = entry.filename;
+          document.getElementById("form-title").textContent = "Editar: " + entry.filename;
+          form.elements.filename.value = entry.filename;
+          form.elements.filename.readOnly = true;
+          setv("category", entry.category); setv("urgency", entry.urgency);
+          setv("title", entry.title); setv("organization", entry.organization);
+          setv("specialty", entry.specialty); setv("description", entry.description);
+          setv("country", entry.location?.country); setv("state", entry.location?.state);
+          setv("city", entry.location?.city); setv("address", entry.location?.address);
+          setv("lat", entry.coords?.lat); setv("lng", entry.coords?.lng);
+          setv("schedule", entry.schedule); setv("notes", entry.notes); setv("source", entry.source);
+          setv("needs", (entry.needs || []).join("\n"));
+          form.elements.acceptsMonetary.checked = !!entry.acceptsMonetary;
+          const c = entry.contact || {};
+          ["phone","whatsapp","instagram","website","email"].forEach((k) => setv("c_" + k, c[k]));
+          setv("people", entry.people ? JSON.stringify(entry.people, null, 1) : "");
+          setv("collectionPoints", entry.collectionPoints ? JSON.stringify(entry.collectionPoints, null, 1) : "");
+        } else {
+          mode = "create"; editingName = null;
+          document.getElementById("form-title").textContent = "Nuevo registro";
+          form.elements.filename.readOnly = false;
+        }
+        dlg.showModal();
+      }
+
+      function collect() {
+        const g = (n) => (form.elements[n]?.value ?? "").trim();
+        const num = (n) => { const v = g(n); return v === "" ? null : parseFloat(v); };
+        const e = {
+          filename: g("filename"), category: g("category"), title: g("title"),
+          urgency: g("urgency") || undefined,
+          organization: g("organization") || undefined,
+          specialty: g("specialty") || undefined,
+          description: g("description") || undefined,
+          location: { country: g("country"), state: g("state"), city: g("city"), address: g("address") || undefined },
+          schedule: g("schedule") || undefined,
+          needs: g("needs").split("\n").map((s) => s.trim()).filter(Boolean),
+          acceptsMonetary: form.elements.acceptsMonetary.checked,
+          notes: g("notes") || undefined, source: g("source") || undefined,
+        };
+        const lat = num("lat"), lng = num("lng");
+        if (lat != null && lng != null) e.coords = { lat, lng };
+        const c = {};
+        ["phone","whatsapp","instagram","website","email"].forEach((k) => { const v = g("c_" + k); if (v) c[k] = v; });
+        if (Object.keys(c).length) e.contact = c;
+        const ppl = g("people"); if (ppl) e.people = JSON.parse(ppl);
+        const cps = g("collectionPoints"); if (cps) e.collectionPoints = JSON.parse(cps);
+        return e;
+      }
+
+      async function save() {
+        if (!ensureToken()) return;
+        statusEl.textContent = "Guardando…";
+        let payload;
+        try { payload = collect(); } catch (err) { statusEl.textContent = "JSON inválido en people/collectionPoints"; return; }
+        const url = mode === "create" ? "/api/admin/points" : "/api/admin/points/" + encodeURIComponent(editingName);
+        try {
+          const r = await fetch(url, {
+            method: mode === "create" ? "POST" : "PATCH",
+            headers: { "content-type": "application/json", "x-admin-token": TOKEN },
+            body: JSON.stringify(payload),
+          });
+          if (r.status === 401) { clearToken(); statusEl.textContent = "Token inválido. Volvé a intentar."; return; }
+          if (!r.ok) { statusEl.textContent = "Error: " + (await r.text()); return; }
+          location.reload();
+        } catch (err) { statusEl.textContent = "Error de red"; }
+      }
+
+      async function del(filename) {
+        if (!ensureToken()) return;
+        if (!confirm("¿Borrar «" + filename + "»? Esto afecta la base en vivo.")) return;
+        const r = await fetch("/api/admin/points/" + encodeURIComponent(filename), {
+          method: "DELETE", headers: { "x-admin-token": TOKEN },
+        });
+        if (r.status === 401) { clearToken(); alert("Token inválido."); return; }
+        if (r.ok) location.reload(); else alert("Error: " + (await r.text()));
+      }
+
+      document.getElementById("new-btn").addEventListener("click", () => openForm(null));
+      document.getElementById("save").addEventListener("click", save);
+      document.getElementById("cancel").addEventListener("click", () => dlg.close());
+      document.getElementById("copy-url").addEventListener("click", () => {
+        navigator.clipboard.writeText(location.href).then(() => {
+          const b = document.getElementById("copy-url"); b.textContent = "¡Copiado!";
+          setTimeout(() => (b.textContent = "Copiar URL"), 1500);
+        });
+      });
+      document.querySelectorAll(".edit").forEach((b) =>
+        b.addEventListener("click", () => openForm(byName[b.dataset.filename])),
+      );
+      document.querySelectorAll(".del").forEach((b) =>
+        b.addEventListener("click", () => del(b.dataset.filename)),
+      );
+      const search = document.getElementById("search");
+      search.addEventListener("input", () => {
+        const q = search.value.toLowerCase();
+        let n = 0;
+        document.querySelectorAll("#rows tr").forEach((tr) => {
+          const show = tr.textContent.toLowerCase().includes(q);
+          tr.style.display = show ? "" : "none";
+          if (show) n++;
+        });
+        document.getElementById("count").textContent = n;
+      });
+    </script>
+
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 0; background: #f3f4f7; color: #1c2433; }
+      .warn { background: #d64533; color: #fff; padding: 10px 20px; font-size: 14px; font-weight: 600; }
+      .bar { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; gap: 12px; flex-wrap: wrap; }
+      .bar h1 { font-size: 18px; margin: 0; }
+      .bar-actions { display: flex; gap: 8px; }
+      button { font: inherit; padding: 8px 14px; border: 1px solid #c9cfdb; border-radius: 8px; background: #fff; cursor: pointer; }
+      button.primary { background: #14213d; color: #fff; border-color: #14213d; }
+      #search { width: calc(100% - 40px); margin: 0 20px; padding: 10px 12px; border: 1px solid #c9cfdb; border-radius: 8px; font: inherit; }
+      .count { margin: 10px 20px; font-size: 13px; color: #5b6472; }
+      .nodb { margin: 16px 20px; background: #fff; border: 1px dashed #c9cfdb; border-radius: 8px; padding: 16px; }
+      table { width: calc(100% - 40px); margin: 0 20px 40px; border-collapse: collapse; background: #fff; border: 1px solid #e3e6ec; border-radius: 10px; overflow: hidden; }
+      th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eef0f4; font-size: 14px; }
+      th { background: #14213d; color: #fff; font-size: 12px; }
+      td.actions { white-space: nowrap; text-align: right; }
+      td.actions button { padding: 5px 10px; font-size: 13px; }
+      .del { color: #d64533; }
+      dialog { width: min(760px, 94vw); border: none; border-radius: 14px; padding: 0; box-shadow: 0 20px 60px rgba(0,0,0,0.35); }
+      dialog::backdrop { background: rgba(20,33,61,0.5); }
+      form { padding: 22px; }
+      form h2 { margin: 0 0 16px; font-size: 18px; }
+      .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+      label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #5b6472; }
+      .wide { grid-column: 1 / -1; }
+      .check { flex-direction: row; align-items: center; gap: 8px; grid-column: 1 / -1; }
+      input, select, textarea { font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid #c9cfdb; border-radius: 8px; background: #fff; color: #1c2433; }
+      input[readonly] { background: #eef0f4; }
+      fieldset { grid-column: 1 / -1; border: 1px solid #e3e6ec; border-radius: 8px; }
+      legend { font-size: 12px; color: #5b6472; padding: 0 6px; }
+      .form-status { color: #d64533; font-size: 13px; min-height: 18px; }
+      .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+    </style>
+  </body>
+</html>

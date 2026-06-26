@@ -25,3 +25,6 @@ pnpm-debug.log*
 
 # session memory (local handoff notes)
 .remember/
+
+# Local Netlify folder
+.netlify

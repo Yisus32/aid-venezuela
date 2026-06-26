@@ -4,8 +4,8 @@
 
 This project is a static humanitarian information portal focused on the current earthquake situation in Venezuela.
 
-- **Stack**: [Astro](https://astro.build/) for site generation, TypeScript for type safety, with possible future use of [Prisma](https://www.prisma.io/) if persistent storage becomes necessary (currently, NO persistence).
-- **Static Information System**: All data is currently static and sourced from files.
+- **Stack**: [Astro](https://astro.build/) + TypeScript, deployed on Netlify (with the `@astrojs/netlify` adapter for on-demand routes/functions).
+- **Data source (AID-09 — full-DB):** the **Prisma + Postgres database (Neon) is the source of truth**. All data reads go through `getEntries()` in `src/lib/db.ts`, which queries the DB when `DATABASE_URL` is set and falls back to `public/images.json` otherwise (local dev / DB down). New centers are added/edited via the hidden admin (`/admin-db-<slug>/`, token-guarded API under `src/pages/api/admin/`), not by hand. The image → `image-metadata.json` → `images.json` pipeline (below) still runs at build and remains the seed/fallback; to re-sync the DB from JSON, run `DATABASE_URL=... node scripts/seed-db.mjs`. Secrets (`DATABASE_URL` pooled, `ADMIN_TOKEN`) live in `.env` locally (gitignored) and in Netlify env vars.
 - **Image Data**: The primary source of information is `public/images/`. The images are humanitarian infographics whose **textual content** (needed supplies, addresses, schedules, contacts, professionals' names/phones) is the real data. That content is transcribed by hand into `scripts/image-metadata.json` (keyed by filename) and merged with file-system facts into `public/images.json`, which serves as a "static DB" for the site. The goal is to map ALL information shown inside each image into the JSON — not merely to reference the image files for display.
 - **Requirements**: Detailed feature and design requirements can be found in the `@requirements` directory.
 

@@ -211,7 +211,7 @@ const entries = ready ? await getEntries() : [];
           <label>Ciudad <input name="city" /></label>
           <label class="wide">Dirección <input name="address" /></label>
           <div class="wide map-pick">
-            <span class="map-pick-label">Ubicación — busca o haz clic en el mapa para fijar las coordenadas (también puedes arrastrar el marcador)</span>
+            <span class="map-pick-label">Ubicación — busca (lupa) o haz clic en el mapa (o arrastra el marcador): se completan coordenadas y dirección. <span id="geo-status"></span></span>
             <div id="pick-map"></div>
           </div>
           <label>Latitud <input name="lat" type="number" step="any" /></label>
@@ -292,19 +292,48 @@ const entries = ready ? await getEntries() : [];
         form.elements.lat.value = round6(lat);
         form.elements.lng.value = round6(lng);
       }
-      function setMarker(lat, lng) {
+      function setMarker(lat, lng, fromUser) {
         if (!pickMap) return;
         if (!pickMarker) {
           pickMarker = L.marker([lat, lng], { draggable: true }).addTo(pickMap);
           pickMarker.on("dragend", () => {
             const p = pickMarker.getLatLng();
             writeLatLng(p.lat, p.lng);
+            reverseGeocode(p.lat, p.lng);
           });
         } else pickMarker.setLatLng([lat, lng]);
         writeLatLng(lat, lng);
+        if (fromUser) reverseGeocode(lat, lng); // clic/búsqueda → completar dirección
       }
       function clearMarker() {
         if (pickMap && pickMarker) { pickMap.removeLayer(pickMarker); pickMarker = null; }
+      }
+      // Geocodificación inversa: de la coordenada elegida saca la dirección
+      // (y ciudad/estado si están vacíos). Usa accept-language por query param
+      // (sin headers personalizados) para evitar problemas de CORS.
+      function reverseGeocode(lat, lng) {
+        const status = document.getElementById("geo-status");
+        if (status) status.textContent = "Buscando dirección…";
+        const url =
+          "https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&accept-language=es&zoom=18&lat=" +
+          lat + "&lon=" + lng;
+        fetch(url)
+          .then((r) => r.json())
+          .then((d) => {
+            const a = (d && d.address) || {};
+            const street = [a.road, a.house_number].filter(Boolean).join(" ");
+            const area = a.neighbourhood || a.suburb || a.quarter || a.hamlet || "";
+            const addr =
+              [street, area].filter(Boolean).join(", ") ||
+              ((d && d.display_name) || "").split(",").slice(0, 2).join(", ").trim();
+            if (addr) form.elements.address.value = addr;
+            const city = a.city || a.town || a.village || a.municipality || "";
+            const state = a.state || "";
+            if (city && !form.elements.city.value.trim()) form.elements.city.value = city;
+            if (state && !form.elements.state.value.trim()) form.elements.state.value = state;
+            if (status) status.textContent = addr ? "Dirección completada — puedes editarla." : "Sin dirección para este punto.";
+          })
+          .catch(() => { if (status) status.textContent = "No se pudo obtener la dirección (ajústala a mano)."; });
       }
       function initPickMap() {
         if (pickMap || typeof L === "undefined") return;
@@ -316,12 +345,12 @@ const entries = ready ? await getEntries() : [];
           L.Control.geocoder({ defaultMarkGeocode: false, placeholder: "Buscar lugar…" })
             .on("markgeocode", (e) => {
               const c = e.geocode.center;
-              setMarker(c.lat, c.lng);
+              setMarker(c.lat, c.lng, true);
               pickMap.setView(c, 15);
             })
             .addTo(pickMap);
         }
-        pickMap.on("click", (e) => setMarker(e.latlng.lat, e.latlng.lng));
+        pickMap.on("click", (e) => setMarker(e.latlng.lat, e.latlng.lng, true));
       }
       function syncMap() {
         initPickMap();
@@ -395,6 +424,7 @@ const entries = ready ? await getEntries() : [];
       function openForm(entry) {
         form.reset();
         statusEl.textContent = "";
+        const gs = document.getElementById("geo-status"); if (gs) gs.textContent = "";
         if (entry) {
           mode = "edit"; editingName = entry.filename;
           document.getElementById("form-title").textContent = "Editar: " + (entry.title || entry.filename);
@@ -764,6 +794,7 @@ const entries = ready ? await getEntries() : [];
 
       .map-pick { display: flex; flex-direction: column; gap: 4px; }
       .map-pick-label { font-size: 12px; color: var(--muted); }
+      #geo-status { color: var(--gold-deep); font-weight: 600; }
       #pick-map { height: 240px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 
       dialog { width: min(780px, 94vw); border: none; border-radius: 16px; padding: 0; box-shadow: 0 24px 70px rgba(20,33,61,0.4); }

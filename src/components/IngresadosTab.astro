@@ -40,32 +40,32 @@ const groups = GROUPS.filter((g) => byKind(g.kind).length > 0);
     </p>
   </header>
 
-  <a
-    class="folder-btn"
-    href={data.folderUrl}
-    target="_blank"
-    rel="noopener noreferrer"
-  >
-    📁 Abrir carpeta completa en Drive · {data.folderName}
-  </a>
+  <div class="ing-top">
+    <a class="folder-btn" href={data.folderUrl} target="_blank" rel="noopener noreferrer">
+      📁 Abrir carpeta completa en Drive · {data.folderName}
+    </a>
+    <span class="ing-updated" id="ing-updated"></span>
+  </div>
 
-  {
-    groups.map((g) => (
-      <div class="ing-group">
-        <h3 class="ing-group-title">{g.label}</h3>
-        <ul class="ing-list">
-          {byKind(g.kind).map((item) => (
-            <li>
-              <a class="ing-link" href={item.url} target="_blank" rel="noopener noreferrer">
-                <span class="ing-name">{item.name}</span>
-                <span class="ing-go" aria-hidden="true">↗</span>
-              </a>
-            </li>
-          ))}
-        </ul>
-      </div>
-    ))
-  }
+  <div id="ing-groups">
+    {
+      groups.map((g) => (
+        <div class="ing-group">
+          <h3 class="ing-group-title">{g.label}</h3>
+          <ul class="ing-list">
+            {byKind(g.kind).map((item) => (
+              <li>
+                <a class="ing-link" href={item.url} target="_blank" rel="noopener noreferrer">
+                  <span class="ing-name">{item.name}</span>
+                  <span class="ing-go" aria-hidden="true">↗</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))
+    }
+  </div>
 
   <p class="ing-note">
     Información recopilada por terceros y alojada en Google Drive. Verifica los
@@ -73,11 +73,71 @@ const groups = GROUPS.filter((g) => byKind(g.kind).length > 0);
   </p>
 </section>
 
+<script>
+  // Live refresh: re-enumerate the Drive folder on every load via the serverless
+  // function (so newly added files appear), falling back to the static snapshot.
+  (function () {
+    const GROUPS = [
+      { kind: "consolidado", label: "Listados consolidados" },
+      { kind: "hospital", label: "Por hospital" },
+      { kind: "busqueda", label: "Búsqueda de personas" },
+      { kind: "otro", label: "Otros listados" },
+    ];
+    const esc = (s: string) =>
+      String(s).replace(/[&<>"]/g, (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!,
+      );
+
+    function render(items: any[]) {
+      const root = document.getElementById("ing-groups");
+      if (!root || !items?.length) return;
+      let html = "";
+      for (const g of GROUPS) {
+        const list = items.filter((i) => i.kind === g.kind);
+        if (!list.length) continue;
+        html += `<div class="ing-group"><h3 class="ing-group-title">${esc(g.label)}</h3><ul class="ing-list">`;
+        for (const it of list) {
+          html += `<li><a class="ing-link" href="${esc(it.url)}" target="_blank" rel="noopener noreferrer"><span class="ing-name">${esc(it.name)}</span><span class="ing-go" aria-hidden="true">↗</span></a></li>`;
+        }
+        html += "</ul></div>";
+      }
+      root.innerHTML = html;
+    }
+
+    async function load() {
+      for (const url of ["/.netlify/functions/ingresados", "/data/ingresados.json"]) {
+        try {
+          const r = await fetch(url, { cache: "no-store" });
+          if (!r.ok) continue;
+          const d = await r.json();
+          if (!d.items?.length) continue;
+          render(d.items);
+          const live = url.includes("functions");
+          const el = document.getElementById("ing-updated");
+          if (el)
+            el.textContent = live
+              ? `${d.items.length} archivos · actualizado ahora`
+              : `${d.items.length} archivos`;
+          return;
+        } catch {
+          /* try next */
+        }
+      }
+    }
+    load();
+  })();
+</script>
+
 <style>
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
 
-  .folder-btn {
+  .ing-top { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 28px; }
+  .ing-updated { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+
+  /* Global so the client-side re-rendered list (injected via innerHTML, without
+     Astro's scope attribute) is styled the same as the server-rendered one. */
+  :global(.folder-btn) {
     display: inline-block;
     font-family: var(--font-display);
     font-weight: 700;
@@ -87,13 +147,12 @@ const groups = GROUPS.filter((g) => byKind(g.kind).length > 0);
     background: var(--gold);
     padding: 12px 18px;
     border-radius: 10px;
-    margin-bottom: 28px;
     transition: background 0.15s;
   }
-  .folder-btn:hover { background: var(--gold-deep); color: #fff; }
+  :global(.folder-btn:hover) { background: var(--gold-deep); color: #fff; }
 
-  .ing-group { margin-bottom: 26px; max-width: 720px; }
-  .ing-group-title {
+  :global(.ing-group) { margin-bottom: 26px; max-width: 720px; }
+  :global(.ing-group-title) {
     font-family: var(--font-mono);
     font-size: 12px;
     letter-spacing: 0.08em;
@@ -103,9 +162,8 @@ const groups = GROUPS.filter((g) => byKind(g.kind).length > 0);
     padding-bottom: 7px;
     border-bottom: 1px solid var(--line);
   }
-
-  .ing-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 7px; }
-  .ing-link {
+  :global(.ing-list) { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 7px; }
+  :global(.ing-link) {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -117,13 +175,13 @@ const groups = GROUPS.filter((g) => byKind(g.kind).length > 0);
     text-decoration: none;
     transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
   }
-  .ing-link:hover {
+  :global(.ing-link:hover) {
     border-color: #d3d8e2;
     box-shadow: 0 4px 14px rgba(20, 33, 61, 0.08);
     transform: translateY(-1px);
   }
-  .ing-name { font-size: 14px; color: var(--ink); font-weight: 600; }
-  .ing-go { font-family: var(--font-mono); color: var(--gold-deep); flex-shrink: 0; }
+  :global(.ing-name) { font-size: 14px; color: var(--ink); font-weight: 600; }
+  :global(.ing-go) { font-family: var(--font-mono); color: var(--gold-deep); flex-shrink: 0; }
 
   .ing-note {
     font-size: 12px;

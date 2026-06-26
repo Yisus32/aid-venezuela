@@ -1,0 +1,135 @@
+---
+import fs from "node:fs";
+import path from "node:path";
+
+interface Item {
+  name: string;
+  url: string;
+  kind: string;
+}
+interface Data {
+  folderName: string;
+  folderUrl: string;
+  note: string;
+  items: Item[];
+}
+
+const data: Data = JSON.parse(
+  fs.readFileSync(path.resolve("public/data/ingresados.json"), "utf-8"),
+);
+
+const GROUPS: { kind: string; label: string }[] = [
+  { kind: "consolidado", label: "Listados consolidados" },
+  { kind: "hospital", label: "Por hospital" },
+  { kind: "busqueda", label: "Búsqueda de personas" },
+  { kind: "otro", label: "Otros listados" },
+];
+
+const byKind = (k: string) => data.items.filter((i) => i.kind === k);
+const groups = GROUPS.filter((g) => byKind(g.kind).length > 0);
+---
+
+<section id="tab-ingresados" class="tab-panel">
+  <header class="panel-head">
+    <p class="panel-eyebrow">Personas ingresadas</p>
+    <h2 class="panel-title">Listados de ingresados</h2>
+    <p class="panel-intro">
+      Listados de personas ingresadas en hospitales tras el sismo, recopilados en
+      Google Drive. Los formatos varían (PDF, hojas, carpetas); cada enlace abre
+      el archivo original en una pestaña nueva.
+    </p>
+  </header>
+
+  <a
+    class="folder-btn"
+    href={data.folderUrl}
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    📁 Abrir carpeta completa en Drive · {data.folderName}
+  </a>
+
+  {
+    groups.map((g) => (
+      <div class="ing-group">
+        <h3 class="ing-group-title">{g.label}</h3>
+        <ul class="ing-list">
+          {byKind(g.kind).map((item) => (
+            <li>
+              <a class="ing-link" href={item.url} target="_blank" rel="noopener noreferrer">
+                <span class="ing-name">{item.name}</span>
+                <span class="ing-go" aria-hidden="true">↗</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))
+  }
+
+  <p class="ing-note">
+    Información recopilada por terceros y alojada en Google Drive. Verifica los
+    datos directamente con el hospital o la fuente oficial.
+  </p>
+</section>
+
+<style>
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .folder-btn {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 14px;
+    text-decoration: none;
+    color: var(--ink);
+    background: var(--gold);
+    padding: 12px 18px;
+    border-radius: 10px;
+    margin-bottom: 28px;
+    transition: background 0.15s;
+  }
+  .folder-btn:hover { background: var(--gold-deep); color: #fff; }
+
+  .ing-group { margin-bottom: 26px; max-width: 720px; }
+  .ing-group-title {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 10px;
+    padding-bottom: 7px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .ing-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 7px; }
+  .ing-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 13px 16px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    text-decoration: none;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  }
+  .ing-link:hover {
+    border-color: #d3d8e2;
+    box-shadow: 0 4px 14px rgba(20, 33, 61, 0.08);
+    transform: translateY(-1px);
+  }
+  .ing-name { font-size: 14px; color: var(--ink); font-weight: 600; }
+  .ing-go { font-family: var(--font-mono); color: var(--gold-deep); flex-shrink: 0; }
+
+  .ing-note {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+    margin: 24px 0 0;
+    max-width: 720px;
+  }
+</style>

@@ -1,0 +1,72 @@
+{
+  "folderName": "SISMO 2026 VZLA",
+  "folderUrl": "https://drive.google.com/drive/folders/1o36ifaRz45kAs5rKzci49aD0mP5JB_YI",
+  "note": "Listados de personas ingresadas en hospitales tras el sismo, recopilados en Google Drive por fuentes solidarias. Los formatos varían (PDF, hojas de cálculo, carpetas). Cada enlace abre el archivo original en una pestaña nueva.",
+  "items": [
+    {
+      "name": "Ingresos por sismo en Hospitales consolidado (1).pdf",
+      "url": "https://drive.google.com/open?id=1-NW7avSy7RlSeKfdVE7WooC0lKkkvM4k",
+      "kind": "consolidado"
+    },
+    {
+      "name": "Ingresos por sismo en Hospitales consolidado 25jun26 2.25pm.pdf",
+      "url": "https://drive.google.com/open?id=1y50v75s9HJ4bwMfLm7wcm52XRBNbY5oQ",
+      "kind": "consolidado"
+    },
+    {
+      "name": "Listado 2",
+      "url": "https://drive.google.com/open?id=125LObYNRazMhUuxeF8FFthiA5YJaGFyApKiUHyO4olo",
+      "kind": "consolidado"
+    },
+    {
+      "name": "LISTAS DE PERSONAS EN MULTIPLES HOSPITALES",
+      "url": "https://drive.google.com/open?id=1SHnWBNnzxsJ30Yr1bY8cF3SP2By7mX2jtquHiyKLesU",
+      "kind": "consolidado"
+    },
+    {
+      "name": "HOSPITAL CARLOS ARVELEDO",
+      "url": "https://drive.google.com/open?id=1Yku1lGK5RVSgAS56UhbRHDhtYgraJZqj",
+      "kind": "hospital"
+    },
+    {
+      "name": "HOSPITAL DE CATIA",
+      "url": "https://drive.google.com/open?id=10gm4GStjkb6hCgr5yMdvh77H36hA7M-w",
+      "kind": "hospital"
+    },
+    {
+      "name": "HOSPITAL LUCIANI CARACAS",
+      "url": "https://drive.google.com/open?id=1womt9b3TSngAE31YoYSWowYY930rZPkZ",
+      "kind": "hospital"
+    },
+    {
+      "name": "HOSPITAL PEREZ CARREÑO",
+      "url": "https://drive.google.com/open?id=1GfyUgXJncw1qNKI1qjiceo_hv87IG0Q6",
+      "kind": "hospital"
+    },
+    {
+      "name": "HOSPITAL UNIVERSITARIO CARACAS",
+      "url": "https://drive.google.com/open?id=1A1JTzkBhBU2xT4WdUSHSD8EusPos13IJ",
+      "kind": "hospital"
+    },
+    {
+      "name": "HOSPITAL VARGAS DE CARACAS",
+      "url": "https://drive.google.com/open?id=15s28bbAxuluxJbe-zb9KNJ_-ywn90qWT",
+      "kind": "hospital"
+    },
+    {
+      "name": "LINK DE BUSQUEDA DE PERSONAS",
+      "url": "https://drive.google.com/open?id=16U7z2m_yvoHfHUEikpjXAJ1_K5yEOr9g",
+      "kind": "busqueda"
+    },
+    {
+      "name": "1_5040023583598840087 (2).pdf",
+      "url": "https://drive.google.com/open?id=10tLqzNMBs_gl-VMiK7KaQTDbqvpSoutI",
+      "kind": "otro"
+    },
+    {
+      "name": "Personas en campo de golf Playa Los cocos",
+      "url": "https://drive.google.com/open?id=1EByuS5LU7mb8rIKShoOUp0jJzNyHFszT",
+      "kind": "otro"
+    }
+  ]
+}

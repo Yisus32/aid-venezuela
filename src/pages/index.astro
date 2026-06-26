@@ -10,6 +10,7 @@ import MapaTab from "../components/MapaTab.astro";
 import ServiciosTab from "../components/ServiciosTab.astro";
 import CanalesTab from "../components/CanalesTab.astro";
 import ReportaTab from "../components/ReportaTab.astro";
+import IngresadosTab from "../components/IngresadosTab.astro";
 import { expandCenters } from "../lib/centers";
 
 const dbPath = path.resolve("public/images.json");
@@ -40,4 +41,5 @@ const personalCount = professionals.reduce(
   <ServiciosTab />
   <CanalesTab />
   <ReportaTab />
+  <IngresadosTab />
 </Layout>

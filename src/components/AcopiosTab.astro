@@ -1,0 +1,777 @@
+---
+import type { ImageEntry } from "../types";
+
+interface Props {
+  centers: ImageEntry[];
+}
+
+const { centers } = Astro.props;
+
+const grouped = centers.reduce(
+  (acc, c) => {
+    const country = c.location.country || "Sin especificar";
+    const state = c.location.state || "Sin especificar";
+    if (!acc[country]) acc[country] = {};
+    if (!acc[country][state]) acc[country][state] = [];
+    acc[country][state].push(c);
+    return acc;
+  },
+  {} as Record<string, Record<string, ImageEntry[]>>,
+);
+
+const countries = Object.keys(grouped).sort((a, b) => {
+  if (a === "Venezuela") return -1;
+  if (b === "Venezuela") return 1;
+  return a.localeCompare(b);
+});
+
+// Donation types are derived from the free-text `needs`, not hardcoded per item.
+const TYPE_RULES = [
+  { key: "alimentos", label: "Alimentos", re: /aliment|comida|pereceder|enlatad|víver/i },
+  { key: "agua", label: "Agua", re: /agua/i },
+  { key: "medicinas", label: "Medicinas e insumos", re: /medic|insumo|gasa|diclofenac|vitamina|dipirona|jeringa|soluci[óo]n|antibi[óo]t|analg|primeros auxilios|material m[ée]dico|guante/i },
+  { key: "higiene", label: "Higiene", re: /higiene|jab[óo]n|pasta dental|cepillo|toallas sanitarias|papel higi[ée]nic|aseo/i },
+  { key: "ropa", label: "Ropa y abrigo", re: /ropa|zapato|s[áa]bana|cobija|manta|frazada/i },
+  { key: "panales", label: "Pañales", re: /pañal/i },
+  { key: "mascotas", label: "Mascotas", re: /perrarina|mascota|animal/i },
+  { key: "herramientas", label: "Herramientas", re: /herramienta|pala|casco|linterna|bota|pila|radio|cargador|encendedor/i },
+];
+
+const typesOf = (item: ImageEntry) => {
+  const text = (item.needs || []).join(" | ");
+  return TYPE_RULES.filter((r) => r.re.test(text)).map((r) => r.key);
+};
+
+// Filter option sets, all derived from the data.
+const orgOptions = [
+  ...new Set(centers.map((c) => c.organization).filter(Boolean)),
+].sort() as string[];
+const typeOptions = TYPE_RULES.filter((r) =>
+  centers.some((c) => typesOf(c).includes(r.key)),
+);
+const URGENCY_LABEL: Record<string, string> = {
+  high: "Alta",
+  medium: "Media",
+  low: "Baja",
+};
+const urgencyOptions = ["high", "medium", "low"].filter((u) =>
+  centers.some((c) => c.urgency === u),
+);
+
+const isUrgent = (c: ImageEntry) => c.urgency === "high";
+const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
+const webHref = (w: string) => (/^https?:\/\//.test(w) ? w : `https://${w}`);
+
+// AID-07: the accordion row is labelled by the collecting organization.
+const ORG_FALLBACK = "Centros de Acopio Sociedad Civil";
+// AID-06: open Google Maps directions to a destination in a new tab.
+const mapsDir = (dest: string) =>
+  `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`;
+const fullAddress = (item: ImageEntry) =>
+  item.location.address ||
+  [item.location.city, item.location.state, item.location.country]
+    .filter(Boolean)
+    .join(", ");
+const countByCountry = (country: string) =>
+  Object.values(grouped[country]).reduce((n, items) => n + items.length, 0);
+---
+
+<section id="tab-acopios" class="tab-panel">
+  <header class="panel-head">
+    <p class="panel-eyebrow">Centros de acopio</p>
+    <h2 class="panel-title">Dónde llevar donaciones</h2>
+    <p class="panel-intro">
+      Puntos activos de recolección, agrupados por país y estado. Toca un centro
+      para ver qué necesita, su horario y cómo contactarlo.
+    </p>
+  </header>
+
+  <form class="filters" aria-label="Filtros de acopios">
+    <div class="f-field">
+      <label for="ac-country">País</label>
+      <select id="ac-country">
+        <option value="">Todos</option>
+        {countries.map((c) => <option value={c}>{c}</option>)}
+      </select>
+    </div>
+    <div class="f-field">
+      <label for="ac-state">Estado</label>
+      <select id="ac-state"><option value="">Todos</option></select>
+    </div>
+    <div class="f-field">
+      <label for="ac-urgency">Urgencia</label>
+      <select id="ac-urgency">
+        <option value="">Todas</option>
+        {urgencyOptions.map((u) => <option value={u}>{URGENCY_LABEL[u]}</option>)}
+      </select>
+    </div>
+    {orgOptions.length > 0 && (
+      <div class="f-field">
+        <label for="ac-org">Organización</label>
+        <select id="ac-org">
+          <option value="">Todas</option>
+          {orgOptions.map((o) => <option value={o}>{o}</option>)}
+        </select>
+      </div>
+    )}
+    <button type="button" id="ac-reset" class="f-reset">Limpiar</button>
+
+    <div class="f-types" role="group" aria-label="Tipo de donación">
+      <span class="f-types-label">Tipo de donación</span>
+      {typeOptions.map((t) => (
+        <label class="type-chip">
+          <input type="checkbox" class="f-type" value={t.key} />
+          <span>{t.label}</span>
+        </label>
+      ))}
+    </div>
+  </form>
+
+  <p class="result-line"><span id="ac-count">{centers.length}</span> centros</p>
+  <p id="ac-empty" class="empty-msg" hidden>
+    No hay centros que coincidan con los filtros. Prueba quitar alguno.
+  </p>
+
+  {
+    countries.map((country) => (
+      <div class="country-group">
+        <div class="country-bar">
+          <h3 class="country-name">{country}</h3>
+          <span class="country-count">{countByCountry(country)} centros</span>
+        </div>
+
+        {Object.entries(grouped[country])
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([state, items]) => (
+            <div class="state-group">
+              <h4 class="state-name">{state}</h4>
+              <ul class="acopio-list">
+                {items.map((item) => (
+                  <li
+                    class="acopio-item"
+                    data-country={country}
+                    data-state={state}
+                    data-urgency={item.urgency ?? ""}
+                    data-org={item.organization ?? ""}
+                    data-types={typesOf(item).join(" ")}
+                  >
+                    <details class={isUrgent(item) ? "urgent" : ""}>
+                      <summary>
+                        <span class="summary-main">
+                          <span class="ac-title">{item.organization || ORG_FALLBACK}</span>
+                          {item.location.city && (
+                            <span class="ac-hint">{item.location.city}</span>
+                          )}
+                        </span>
+                        {isUrgent(item) && <span class="pill-urgent">Urgente</span>}
+                        <span class="chevron" aria-hidden="true">▾</span>
+                      </summary>
+
+                      <div class="ac-body">
+                        <p class="ac-campaign">{item.title}</p>
+                        {item.description && <p class="ac-desc">{item.description}</p>}
+
+                        <div class="meta">
+                          {(item.location.address || item.location.city) && (
+                            <p class="meta-row">
+                              <svg viewBox="0 0 24 24" class="mi" aria-hidden="true">
+                                <path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0z" />
+                                <circle cx="12" cy="10" r="3" />
+                              </svg>
+                              <a
+                                class="addr-link"
+                                href={mapsDir(fullAddress(item))}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Cómo llegar (Google Maps)"
+                              >
+                                {item.location.address ||
+                                  [item.location.city, item.location.state]
+                                    .filter(Boolean)
+                                    .join(", ")}
+                                <span class="dir-ico" aria-hidden="true">↗</span>
+                              </a>
+                            </p>
+                          )}
+                          {item.schedule && (
+                            <p class="meta-row">
+                              <svg viewBox="0 0 24 24" class="mi" aria-hidden="true">
+                                <circle cx="12" cy="12" r="9" />
+                                <path d="M12 7v5l3 2" />
+                              </svg>
+                              <span>{item.schedule}</span>
+                            </p>
+                          )}
+                        </div>
+
+                        {item.needs && item.needs.length > 0 && (
+                          <div class="block">
+                            <p class="block-label">Se necesita</p>
+                            <ul class="needs">
+                              {item.needs.map((n) => (
+                                <li>{n}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {item.collectionPoints && item.collectionPoints.length > 0 && (
+                          <div class="block">
+                            <p class="block-label">Puntos de recolección</p>
+                            <ul class="points">
+                              {item.collectionPoints.map((p) => (
+                                <li>
+                                  {p.state && <span class="pstate">{p.state}</span>}
+                                  <a
+                                    class="addr-link"
+                                    href={mapsDir(
+                                      [
+                                        p.location,
+                                        p.state || item.location.state,
+                                        item.location.country,
+                                      ]
+                                        .filter(Boolean)
+                                        .join(", "),
+                                    )}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title="Cómo llegar (Google Maps)"
+                                  >
+                                    {p.location}
+                                    <span class="dir-ico" aria-hidden="true">↗</span>
+                                  </a>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {(item.acceptsMonetary ||
+                          item.contact?.phone ||
+                          item.contact?.website) && (
+                          <div class="ac-foot">
+                            {item.acceptsMonetary && (
+                              <span class="chip chip-money">Acepta donación monetaria</span>
+                            )}
+                            {item.contact?.phone &&
+                              item.contact.phone.split("/").map((num) => (
+                                <a class="chip chip-link" href={telHref(num.trim())}>
+                                  {num.trim()}
+                                </a>
+                              ))}
+                            {item.contact?.website && (
+                              <a
+                                class="chip chip-link"
+                                href={webHref(item.contact.website)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {item.contact.website}
+                              </a>
+                            )}
+                          </div>
+                        )}
+
+                        {item.notes && <p class="ac-note">{item.notes}</p>}
+                      </div>
+                    </details>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+      </div>
+    ))
+  }
+
+  <nav class="pager" id="ac-pager" aria-label="Paginación de centros" hidden>
+    <button type="button" id="ac-prev" class="pg-btn">← Anterior</button>
+    <span id="ac-pageinfo" class="pg-info"></span>
+    <button type="button" id="ac-next" class="pg-btn">Siguiente →</button>
+  </nav>
+</section>
+
+<script>
+  const root = document.getElementById("tab-acopios");
+  if (root) {
+    const items = [...root.querySelectorAll<HTMLElement>(".acopio-item")];
+    const countrySel = root.querySelector<HTMLSelectElement>("#ac-country")!;
+    const stateSel = root.querySelector<HTMLSelectElement>("#ac-state")!;
+    const urgSel = root.querySelector<HTMLSelectElement>("#ac-urgency")!;
+    const orgSel = root.querySelector<HTMLSelectElement>("#ac-org");
+    const typeBoxes = [...root.querySelectorAll<HTMLInputElement>(".f-type")];
+    const countEl = root.querySelector("#ac-count")!;
+    const emptyEl = root.querySelector<HTMLElement>("#ac-empty")!;
+    const pager = root.querySelector<HTMLElement>("#ac-pager");
+    const prevBtn = root.querySelector<HTMLButtonElement>("#ac-prev");
+    const nextBtn = root.querySelector<HTMLButtonElement>("#ac-next");
+    const pageInfo = root.querySelector<HTMLElement>("#ac-pageinfo");
+    const PER_PAGE = 10;
+    let page = 0;
+
+    const uniqSorted = (arr: string[]) =>
+      [...new Set(arr.filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+
+    // Rebuild a <select>, preserving the current value if still valid.
+    function fill(sel: HTMLSelectElement, values: string[], allLabel: string) {
+      const prev = sel.value;
+      sel.innerHTML = "";
+      const o0 = document.createElement("option");
+      o0.value = "";
+      o0.textContent = allLabel;
+      sel.appendChild(o0);
+      for (const v of values) {
+        const o = document.createElement("option");
+        o.value = v;
+        o.textContent = v;
+        sel.appendChild(o);
+      }
+      sel.value = values.includes(prev) ? prev : "";
+    }
+
+    // Hierarchy: Country -> State -> Organization. Each level only offers
+    // options that exist within the levels chosen above it.
+    function rebuildStates() {
+      const c = countrySel.value;
+      fill(
+        stateSel,
+        uniqSorted(
+          items
+            .filter((i) => !c || i.dataset.country === c)
+            .map((i) => i.dataset.state || ""),
+        ),
+        "Todos",
+      );
+    }
+    function rebuildOrgs() {
+      if (!orgSel) return;
+      const c = countrySel.value;
+      const s = stateSel.value;
+      fill(
+        orgSel,
+        uniqSorted(
+          items
+            .filter(
+              (i) =>
+                (!c || i.dataset.country === c) &&
+                (!s || i.dataset.state === s),
+            )
+            .map((i) => i.dataset.org || ""),
+        ),
+        "Todas",
+      );
+    }
+
+    function matches(it: HTMLElement) {
+      const c = countrySel.value;
+      const s = stateSel.value;
+      const u = urgSel.value;
+      const o = orgSel?.value || "";
+      const types = typeBoxes.filter((b) => b.checked).map((b) => b.value);
+      const itTypes = (it.dataset.types || "").split(" ").filter(Boolean);
+      return (
+        (!c || it.dataset.country === c) &&
+        (!s || it.dataset.state === s) &&
+        (!u || it.dataset.urgency === u) &&
+        (!o || it.dataset.org === o) &&
+        (!types.length || types.some((t) => itTypes.includes(t)))
+      );
+    }
+
+    // Apply filters + pagination (10 per page over the matched set).
+    function render() {
+      const matched = items.filter(matches);
+      const pages = Math.max(1, Math.ceil(matched.length / PER_PAGE));
+      page = Math.min(Math.max(page, 0), pages - 1);
+      const start = page * PER_PAGE;
+      const onPage = new Set(matched.slice(start, start + PER_PAGE));
+      items.forEach((it) => (it.hidden = !onPage.has(it)));
+
+      root!.querySelectorAll<HTMLElement>(".state-group").forEach((g) => {
+        g.hidden = ![...g.querySelectorAll<HTMLElement>(".acopio-item")].some(
+          (i) => !i.hidden,
+        );
+      });
+      root!.querySelectorAll<HTMLElement>(".country-group").forEach((g) => {
+        g.hidden = ![...g.querySelectorAll<HTMLElement>(".state-group")].some(
+          (x) => !x.hidden,
+        );
+      });
+
+      countEl.textContent = String(matched.length);
+      emptyEl.hidden = matched.length > 0;
+      if (pager) {
+        pager.hidden = matched.length <= PER_PAGE;
+        if (pageInfo) pageInfo.textContent = `Página ${page + 1} de ${pages}`;
+        if (prevBtn) prevBtn.disabled = page === 0;
+        if (nextBtn) nextBtn.disabled = page >= pages - 1;
+      }
+    }
+
+    // Changing any filter resets to the first page.
+    function onFilterChange() {
+      page = 0;
+      render();
+    }
+
+    countrySel.addEventListener("change", () => {
+      rebuildStates();
+      rebuildOrgs();
+      onFilterChange();
+    });
+    stateSel.addEventListener("change", () => {
+      rebuildOrgs();
+      onFilterChange();
+    });
+    orgSel?.addEventListener("change", onFilterChange);
+    urgSel.addEventListener("change", onFilterChange);
+    typeBoxes.forEach((b) => b.addEventListener("change", onFilterChange));
+    root.querySelector("#ac-reset")?.addEventListener("click", () => {
+      countrySel.value = "";
+      stateSel.value = "";
+      urgSel.value = "";
+      if (orgSel) orgSel.value = "";
+      typeBoxes.forEach((b) => (b.checked = false));
+      rebuildStates();
+      rebuildOrgs();
+      onFilterChange();
+      toTop();
+    });
+
+    const toTop = () =>
+      document.querySelector(".content")?.scrollTo({ top: 0, behavior: "smooth" });
+    prevBtn?.addEventListener("click", () => {
+      page--;
+      render();
+      toTop();
+    });
+    nextBtn?.addEventListener("click", () => {
+      page++;
+      render();
+      toTop();
+    });
+
+    rebuildStates();
+    rebuildOrgs();
+    render();
+  }
+</script>
+
+<style>
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ---- Filters ---- */
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    padding: 16px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    margin-bottom: 16px;
+  }
+  .f-field { display: flex; flex-direction: column; gap: 4px; }
+  .f-field label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .f-field select {
+    font-family: var(--font-body);
+    font-size: 13px;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    color: var(--text);
+    min-width: 140px;
+  }
+  .f-field select:focus { outline: none; border-color: var(--gold); }
+
+  .f-reset {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 13px;
+    padding: 9px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .f-reset:hover { border-color: var(--ink); }
+
+  .f-types {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    flex-basis: 100%;
+    padding-top: 12px;
+    border-top: 1px dashed var(--line);
+  }
+  .f-types-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-right: 4px;
+  }
+  .type-chip { cursor: pointer; }
+  .type-chip input { position: absolute; opacity: 0; pointer-events: none; }
+  .type-chip span {
+    display: inline-block;
+    font-size: 12.5px;
+    padding: 5px 11px;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: var(--paper);
+    color: var(--muted);
+    transition: all 0.15s;
+  }
+  .type-chip input:checked + span {
+    background: var(--ink);
+    color: #fff;
+    border-color: var(--ink);
+  }
+  .type-chip input:focus-visible + span { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+  .result-line { font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin: 0 0 18px; }
+
+  .pager {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 24px;
+    max-width: 760px;
+  }
+  .pg-btn {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 13px;
+    padding: 9px 16px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--ink);
+    cursor: pointer;
+    transition: border-color 0.15s, opacity 0.15s;
+  }
+  .pg-btn:hover:not(:disabled) { border-color: var(--ink); }
+  .pg-btn:disabled { opacity: 0.4; cursor: default; }
+  .pg-info { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+  #ac-count { color: var(--ink); font-weight: 700; }
+  .empty-msg {
+    font-size: 14px;
+    color: var(--muted);
+    background: var(--card);
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  /* ---- List ---- */
+  .country-group { margin-bottom: 36px; }
+  .country-bar {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin: 0 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--ink);
+  }
+  .country-name {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin: 0;
+  }
+  .country-count { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+
+  .state-group { margin: 0 0 22px; }
+  .state-name {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 10px;
+  }
+
+  .acopio-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 760px;
+  }
+
+  details {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.18s, box-shadow 0.18s;
+  }
+  details[open] { border-color: #d3d8e2; box-shadow: 0 8px 24px rgba(20, 33, 61, 0.07); }
+  details.urgent { border-left: 4px solid var(--urgent); }
+
+  summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 15px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    user-select: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary:hover { background: #fafbfc; }
+
+  .summary-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+  .ac-title {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.2;
+  }
+  .ac-hint { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+
+  .pill-urgent {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #fff;
+    background: var(--urgent);
+    padding: 3px 8px;
+    border-radius: 20px;
+  }
+
+  .chevron { color: var(--muted); font-size: 13px; transition: transform 0.2s; flex-shrink: 0; }
+  details[open] .chevron { transform: rotate(180deg); }
+
+  .ac-body {
+    padding: 4px 18px 18px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ac-campaign {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    margin: 12px 0 0;
+  }
+  .ac-desc { font-size: 13.5px; line-height: 1.5; color: var(--text); margin: 0; }
+
+  .addr-link {
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-bottom: 1px solid var(--gold);
+    transition: color 0.15s;
+  }
+  .addr-link:hover { color: var(--gold-deep); }
+  .dir-ico { font-family: var(--font-mono); font-size: 10px; margin-left: 3px; color: var(--gold-deep); }
+
+  .meta { display: flex; flex-direction: column; gap: 5px; }
+  .meta-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    font-size: 13px;
+    color: var(--muted);
+    margin: 0;
+  }
+  .mi {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    fill: none;
+    stroke: var(--gold-deep);
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .block-label {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink);
+    margin: 0 0 6px;
+  }
+
+  .needs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+  .needs li {
+    position: relative;
+    padding-left: 18px;
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.35;
+  }
+  .needs li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 6px;
+    width: 7px;
+    height: 7px;
+    background: var(--gold);
+    border-radius: 2px;
+  }
+
+  .points { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .points li { font-size: 12.5px; color: var(--muted); line-height: 1.35; }
+  .pstate {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0 5px;
+    margin-right: 6px;
+  }
+
+  .ac-foot { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+  .chip {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    padding: 4px 9px;
+    border-radius: 6px;
+    text-decoration: none;
+  }
+  .chip-money { background: #eef4ec; color: #2f7d32; }
+  .chip-link { background: #eef1f8; color: var(--ink-soft); font-weight: 700; }
+  .chip-link:hover { background: #e2e7f4; }
+
+  .ac-note {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+    margin: 2px 0 0;
+    padding-top: 10px;
+    border-top: 1px dashed var(--line);
+  }
+</style>

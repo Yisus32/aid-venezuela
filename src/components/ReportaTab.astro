@@ -1,0 +1,22 @@
+---
+import ReportCenterForm from "./ReportCenterForm.astro";
+---
+
+<section id="tab-reporta" class="tab-panel">
+  <header class="panel-head">
+    <p class="panel-eyebrow">Colaborá</p>
+    <h2 class="panel-title">Reporta o pide ayuda</h2>
+    <p class="panel-intro">
+      Elige el tipo de reporte: <strong>necesito ayuda</strong>, <strong>reportar un
+      centro de acopio</strong> o <strong>soy profesional</strong> y quiero
+      anunciarme. Los moderadores revisan cada envío antes de publicarlo.
+    </p>
+  </header>
+
+  <ReportCenterForm />
+</section>
+
+<style>
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+</style>

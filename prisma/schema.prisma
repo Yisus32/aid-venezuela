@@ -1,0 +1,115 @@
+// AID-09: relational model of the humanitarian data currently in
+// public/images.json. Mirrors the fields in scripts/image-metadata.json.
+//
+// Activation (run by an admin with Prisma Compute access — see AID-09):
+//   bunx @prisma/cli@latest auth login
+//   bunx @prisma/cli@latest app deploy --project proj_cmqv49kd507kyzyf5se86elhp
+//   # wire DATABASE_URL, then:
+//   npx prisma migrate deploy
+//   node scripts/seed-db.mjs   # one-time migration of images.json
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Category {
+  center
+  professional
+}
+
+enum Urgency {
+  high
+  medium
+  low
+}
+
+model Organization {
+  id     String  @id @default(cuid())
+  name   String  @unique
+  points Point[]
+}
+
+model Location {
+  id      String  @id @default(cuid())
+  country String
+  state   String
+  city    String  @default("")
+  address String?
+  lat     Float?
+  lng     Float?
+  point   Point?
+}
+
+/// One humanitarian record (an aid center or a professional/service).
+model Point {
+  id       String   @id @default(cuid())
+  filename String   @unique
+  code     String
+  category Category
+  urgency  Urgency?
+
+  title       String
+  specialty   String?
+  description String?
+  schedule    String?
+  needs       String[] // e.g. ["Agua", "Alimentos", "Medicinas"]
+  acceptsMonetary Boolean @default(false)
+  notes       String?
+  source      String? // e.g. "locations.md"
+
+  // File-system facts (kept for parity with the static pipeline).
+  path     String @default("")
+  format   String @default("")
+  fileSize Int    @default(0)
+
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  organizationId String?
+
+  location   Location @relation(fields: [locationId], references: [id])
+  locationId String   @unique
+
+  contact          Contact?
+  people           Person[]
+  collectionPoints CollectionPoint[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@index([organizationId])
+}
+
+model Contact {
+  id        String  @id @default(cuid())
+  phone     String?
+  whatsapp  String?
+  instagram String?
+  website   String?
+  email     String?
+  point     Point   @relation(fields: [pointId], references: [id], onDelete: Cascade)
+  pointId   String  @unique
+}
+
+/// A professional listed within a Point that has a people table (e.g. psychologists).
+model Person {
+  id        String  @id @default(cuid())
+  name      String
+  specialty String?
+  registry  String?
+  contact   String?
+  point     Point   @relation(fields: [pointId], references: [id], onDelete: Cascade)
+  pointId   String
+}
+
+/// A sub-point of a multi-location flyer (e.g. the nationwide acopios list).
+model CollectionPoint {
+  id       String  @id @default(cuid())
+  state    String?
+  location String
+  point    Point   @relation(fields: [pointId], references: [id], onDelete: Cascade)
+  pointId  String
+}

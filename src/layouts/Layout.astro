@@ -1,0 +1,458 @@
+---
+interface Props {
+  acopiosCount?: number;
+  personalCount?: number;
+}
+const { acopiosCount = 0, personalCount = 0 } = Astro.props;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <meta
+      name="description"
+      content="Centros de acopio y ayuda profesional para la respuesta al terremoto en Venezuela."
+    />
+    <title>Ayuda Venezuela · Respuesta al terremoto</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Leaflet + Nominatim geocoder (AID-03 map markers, AID-01 search) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet-control-geocoder@2.4.0/dist/Control.Geocoder.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder@2.4.0/dist/Control.Geocoder.js"
+    ></script>
+  </head>
+  <body>
+    <div class="app" id="app">
+      <header class="mobile-bar">
+        <button class="burger" id="burger" aria-label="Abrir menú" aria-expanded="false" aria-controls="rail">
+          <span></span><span></span><span></span>
+        </button>
+        <span class="mobile-word">Ayuda Venezuela</span>
+      </header>
+      <div class="rail-overlay" id="rail-overlay" hidden></div>
+      <aside class="rail" id="rail">
+        <div class="brand">
+          <p class="eyebrow">Respuesta al terremoto</p>
+          <h1 class="wordmark">Ayuda<br />Venezuela</h1>
+
+          <!-- Signature: a seismograph trace — the quake itself, drawn once on load. -->
+          <svg class="seismo" viewBox="0 0 260 36" aria-hidden="true" preserveAspectRatio="none">
+            <path
+              d="M0 18 L70 18 L80 18 L86 7 L92 29 L98 4 L104 32 L110 13 L116 24 L122 18 L150 18 L158 18 L163 11 L168 26 L173 18 L260 18"
+            ></path>
+          </svg>
+
+          <p class="tagline">Dónde recibir ayuda y dónde darla, en un solo lugar.</p>
+        </div>
+
+        <nav class="nav" aria-label="Secciones">
+          <button class="tab active" data-tab="inicio">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />
+            </svg>
+            <span class="tab-label">Inicio</span>
+          </button>
+          <button class="tab" data-tab="acopios">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 8l9-5 9 5-9 5-9-5zM3 8v8l9 5 9-5V8M12 13v8" />
+            </svg>
+            <span class="tab-label">Acopios</span>
+            <span class="tab-count">{acopiosCount}</span>
+          </button>
+          <button class="tab" data-tab="personal">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M16 19v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM22 19v-2a4 4 0 0 0-3-3.87M16 3.13A4 4 0 0 1 16 11" />
+            </svg>
+            <span class="tab-label">Personal</span>
+            <span class="tab-count">{personalCount}</span>
+          </button>
+          <button class="tab" data-tab="mapa">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            <span class="tab-label">Mapa</span>
+          </button>
+          <button class="tab" data-tab="servicios">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4.3-4.3" />
+            </svg>
+            <span class="tab-label">Servicios</span>
+          </button>
+          <button class="tab" data-tab="canales">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4" />
+              <circle cx="12" cy="12" r="2" />
+            </svg>
+            <span class="tab-label">Canales</span>
+          </button>
+          <button class="tab" data-tab="reporta">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            <span class="tab-label">Reporta</span>
+          </button>
+        </nav>
+
+        <div class="rail-foot">
+          <p class="solidarity">#FuerzaVenezuela</p>
+          <p class="source">Datos transcritos de avisos de centros de acopio y ayuda.</p>
+          <a
+            class="branding"
+            href="https://www.talosware.com.ve"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <img src="/branding/venezuela-flag.svg" alt="Bandera de Venezuela" class="brand-ico" />
+            <img src="/branding/talos-favicon.svg" alt="Talos Software" class="brand-ico" />
+            <span>Powered by Talos Software</span>
+          </a>
+        </div>
+      </aside>
+
+      <main class="content">
+        <slot />
+      </main>
+    </div>
+
+    <script>
+      const tabs = [...document.querySelectorAll<HTMLElement>(".tab")];
+      const panels = [...document.querySelectorAll<HTMLElement>(".tab-panel")];
+
+      // Mobile drawer (burger) controls.
+      const app = document.getElementById("app");
+      const burger = document.getElementById("burger");
+      const overlay = document.getElementById("rail-overlay");
+      function setDrawer(open: boolean) {
+        app?.classList.toggle("drawer-open", open);
+        burger?.setAttribute("aria-expanded", String(open));
+        if (overlay) overlay.hidden = !open;
+      }
+      burger?.addEventListener("click", () =>
+        setDrawer(!app?.classList.contains("drawer-open")),
+      );
+      overlay?.addEventListener("click", () => setDrawer(false));
+
+      function activate(name: string) {
+        if (!document.getElementById("tab-" + name)) return;
+        tabs.forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+        panels.forEach((p) => p.classList.toggle("active", p.id === "tab-" + name));
+        document.querySelector(".content")?.scrollTo({ top: 0 });
+        setDrawer(false); // close the mobile drawer after navigating
+        if (location.hash !== "#tab-" + name)
+          history.replaceState(null, "", "#tab-" + name);
+        // Let panels (e.g. the map) react when they become visible.
+        document.dispatchEvent(new CustomEvent("tabchange", { detail: name }));
+      }
+
+      // Sidebar tabs and any dashboard card with data-goto both navigate.
+      tabs.forEach((b) => b.addEventListener("click", () => activate(b.dataset.tab!)));
+      document
+        .querySelectorAll<HTMLElement>("[data-goto]")
+        .forEach((el) => el.addEventListener("click", () => activate(el.dataset.goto!)));
+
+      // Deep-link: open the section named in the URL hash (#tab-mapa).
+      const fromHash = location.hash.replace("#tab-", "");
+      if (fromHash) activate(fromHash);
+    </script>
+
+    <style is:global>
+      :root {
+        --ink: #14213d;
+        --ink-soft: #243456;
+        --paper: #f3f4f7;
+        --card: #ffffff;
+        --gold: #e8a33d;
+        --gold-deep: #c9821a;
+        --urgent: #d64533;
+        --line: #e3e6ec;
+        --text: #1c2433;
+        --muted: #5b6472;
+        --rail-w: 264px;
+
+        --font-display: "Archivo", system-ui, sans-serif;
+        --font-body: "Public Sans", system-ui, sans-serif;
+        --font-mono: "Space Mono", ui-monospace, monospace;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body { margin: 0; padding: 0; height: 100%; }
+
+      body {
+        font-family: var(--font-body);
+        background: var(--paper);
+        color: var(--text);
+        -webkit-font-smoothing: antialiased;
+        font-size: 15px;
+        line-height: 1.5;
+      }
+
+      a { color: var(--gold-deep); }
+
+      :focus-visible {
+        outline: 2px solid var(--gold);
+        outline-offset: 2px;
+        border-radius: 4px;
+      }
+
+      .app { display: flex; min-height: 100vh; }
+
+      /* ---- Rail / operations console ---- */
+      .rail {
+        width: var(--rail-w);
+        min-width: var(--rail-w);
+        background: var(--ink);
+        color: #e7ebf3;
+        display: flex;
+        flex-direction: column;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 28px 22px;
+      }
+
+      .brand { padding-bottom: 22px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+
+      .eyebrow {
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--gold);
+        margin: 0 0 10px;
+      }
+
+      .wordmark {
+        font-family: var(--font-display);
+        font-weight: 800;
+        font-size: 30px;
+        line-height: 0.98;
+        letter-spacing: -0.01em;
+        margin: 0;
+        color: #fff;
+      }
+
+      .seismo {
+        width: 100%;
+        height: 34px;
+        margin: 14px 0 12px;
+        display: block;
+      }
+      .seismo path {
+        fill: none;
+        stroke: var(--gold);
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 620;
+        stroke-dashoffset: 620;
+        animation: trace 1.6s cubic-bezier(0.22, 1, 0.36, 1) 0.2s forwards;
+      }
+      @keyframes trace { to { stroke-dashoffset: 0; } }
+
+      .tagline { font-size: 13px; line-height: 1.45; color: #aab4c8; margin: 0; }
+
+      .nav { display: flex; flex-direction: column; gap: 4px; padding: 18px 0; flex: 1; }
+
+      .tab {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        text-align: left;
+        background: none;
+        border: none;
+        color: #c2cad9;
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 14px;
+        letter-spacing: 0.02em;
+        padding: 12px 14px;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: background 0.18s, color 0.18s;
+      }
+
+      .tab .ico {
+        width: 20px;
+        height: 20px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        flex-shrink: 0;
+      }
+
+      .tab-label { flex: 1; }
+
+      .tab-count {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #d8deea;
+        padding: 1px 8px;
+        border-radius: 20px;
+      }
+
+      .tab:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+
+      .tab.active {
+        background: var(--gold);
+        color: var(--ink);
+      }
+      .tab.active .tab-count { background: rgba(20, 33, 61, 0.18); color: var(--ink); }
+
+      .rail-foot { padding-top: 18px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+      .solidarity {
+        font-family: var(--font-display);
+        font-weight: 800;
+        font-size: 14px;
+        color: var(--gold);
+        margin: 0 0 6px;
+      }
+      .source { font-size: 11.5px; color: #8a94a8; margin: 0; line-height: 1.4; }
+
+      /* AID-12: branding footer. */
+      .branding {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 14px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        text-decoration: none;
+        color: #8a94a8;
+        font-size: 11.5px;
+        transition: color 0.15s;
+      }
+      .branding:hover { color: #fff; }
+      .brand-ico {
+        height: 18px;
+        width: auto;
+        display: block;
+        border-radius: 3px;
+        background: #fff;
+        padding: 1px;
+      }
+
+      /* ---- Mobile drawer chrome (hidden on desktop) ---- */
+      .mobile-bar { display: none; }
+      .rail-overlay { display: none; }
+      .burger {
+        width: 40px;
+        height: 40px;
+        display: inline-flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 5px;
+        padding: 9px;
+        background: none;
+        border: none;
+        cursor: pointer;
+      }
+      .burger span {
+        display: block;
+        height: 2px;
+        border-radius: 2px;
+        background: #fff;
+      }
+
+      /* ---- Content ---- */
+      .content { flex: 1; overflow-y: auto; height: 100vh; padding: 40px 44px; }
+
+      /* Shared section header treatment used by every tab. */
+      .panel-head { margin-bottom: 28px; max-width: 900px; }
+      .panel-eyebrow {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--gold-deep);
+        margin: 0 0 6px;
+      }
+      .panel-title {
+        font-family: var(--font-display);
+        font-weight: 800;
+        font-size: clamp(26px, 3vw, 34px);
+        letter-spacing: -0.015em;
+        line-height: 1.05;
+        margin: 0 0 8px;
+        color: var(--ink);
+      }
+      .panel-intro { font-size: 15px; color: var(--muted); margin: 0; max-width: 60ch; }
+
+      @media (max-width: 860px) {
+        .app { flex-direction: column; }
+
+        /* Top bar with the burger. */
+        .mobile-bar {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          position: sticky;
+          top: 0;
+          z-index: 30;
+          background: var(--ink);
+          padding: 8px 12px;
+        }
+        .mobile-word {
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: 16px;
+          color: #fff;
+        }
+
+        /* Sidebar becomes an off-canvas drawer. */
+        .rail {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 280px;
+          max-width: 84vw;
+          height: 100vh;
+          min-width: 0;
+          z-index: 50;
+          transform: translateX(-100%);
+          transition: transform 0.25s ease;
+        }
+        .app.drawer-open .rail {
+          transform: translateX(0);
+          box-shadow: 0 0 40px rgba(0, 0, 0, 0.45);
+        }
+        .app.drawer-open .rail-overlay {
+          display: block;
+          position: fixed;
+          inset: 0;
+          z-index: 40;
+          background: rgba(0, 0, 0, 0.45);
+        }
+
+        .content { height: auto; padding: 24px 18px 48px; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .rail { transition: none; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .seismo path { animation: none; stroke-dashoffset: 0; }
+      }
+    </style>
+  </body>
+</html>

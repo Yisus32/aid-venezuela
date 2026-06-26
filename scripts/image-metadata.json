@@ -1,0 +1,629 @@
+{
+  "cen-grama-mad.png": {
+    "category": "center",
+    "urgency": "high",
+    "title": "Centro de Acopio - GRAMA",
+    "organization": "GRAMA",
+    "description": "Centro de acopio por Venezuela. Apoyemos a Venezuela tras el terremoto: tu solidaridad llega donde más se necesita.",
+    "location": {
+      "country": "España",
+      "state": "Madrid",
+      "city": "Madrid",
+      "address": "Calle de la Cruz 19, Madrid"
+    },
+    "coords": { "lat": 40.4155, "lng": -3.702 },
+    "schedule": "Hasta el 26 de junio",
+    "needs": [
+      "Alimentos no perecederos (caraotas, arroz, pasta, azúcar, leche en polvo)",
+      "Agua y suero",
+      "Salud y primeros auxilios",
+      "Refugio y apoyo"
+    ]
+  },
+  "cen-consazon-esp.png": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Centro de Acopio - Con Sazón",
+    "organization": "Con Sazón",
+    "description": "Somos centro de acopio para Venezuela. Cada donación, una esperanza.",
+    "location": { "country": "España", "state": "", "city": "" },
+    "coords": { "lat": 40.4168, "lng": -3.7038 },
+    "schedule": "Sábado 27 de junio a las 10:00 AM y domingo 28 a las 4:00 PM",
+    "notes": "Las direcciones de los puntos de recolección no son legibles en el aviso original; la coordenada es aproximada (Madrid). Confirmar ubicación exacta."
+  },
+  "cen-empanadera-mad.png": {
+    "category": "center",
+    "urgency": "high",
+    "title": "Centro de Acopio - La Empanadera",
+    "organization": "La Empanadera",
+    "description": "En La Empanadera somos centro de acopio para Venezuela. Nos unimos para apoyar a las familias afectadas por el terremoto. Lo recaudado se traslada al punto principal: Sambil Madrid.",
+    "location": {
+      "country": "España",
+      "state": "Madrid",
+      "city": "Madrid",
+      "address": "Sede Ciudad Lineal: Calle José María de Pereda 39, 28017 Madrid"
+    },
+    "coords": { "lat": 40.453, "lng": -3.647 },
+    "needs": [
+      "Alimentos no perecederos",
+      "Medicamentos y material de primeros auxilios",
+      "Leche infantil, pañales y productos para bebés",
+      "Productos de higiene personal",
+      "Linternas, pilas y baterías externas (power banks)",
+      "Mantas, sábanas y ropa en buen estado",
+      "Cajas de plástico para envíos"
+    ],
+    "collectionPoints": [
+      { "location": "Sede Ciudad Lineal: Calle José María de Pereda 39, Ciudad Lineal, 28017 Madrid" },
+      { "location": "Sede Villaverde: Calle Berrocal 7, Local 13, Villaverde, 28021 Madrid" }
+    ]
+  },
+  "cen-arcadia-mad.png": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Centro de Acopio - Arcadia España",
+    "organization": "Arcadia España",
+    "description": "Somos centro de acopio para Venezuela. Cada donación, una esperanza.",
+    "location": {
+      "country": "España",
+      "state": "Madrid",
+      "city": "Madrid",
+      "address": "Av. Menéndez Pelayo 38, Bajo C, Madrid"
+    },
+    "coords": { "lat": 40.4115, "lng": -3.677 },
+    "schedule": "De 10:00 a 19:00",
+    "needs": [
+      "Alimentos no perecederos",
+      "Medicamentos y primeros auxilios",
+      "Pañales y productos para bebés",
+      "Productos de higiene personal"
+    ]
+  },
+  "cen-arepera-mad.png": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Centro de Acopio - La Arepera",
+    "organization": "La Arepera",
+    "description": "En La Arepera nos unimos para apoyar a todas las familias afectadas por los terremotos en Venezuela. Pequeñas acciones, grandes cambios.",
+    "location": {
+      "country": "España",
+      "state": "Madrid",
+      "city": "Madrid",
+      "address": "Sede Gran Vía 73, Madrid"
+    },
+    "coords": { "lat": 40.4205, "lng": -3.709 },
+    "schedule": "Viernes y sábado de 11:15 AM a 7:00 PM",
+    "needs": [
+      "Alimentos no perecederos",
+      "Pañales y productos para bebés",
+      "Medicina y primeros auxilios",
+      "Comida para animales",
+      "Productos de higiene personal"
+    ]
+  },
+  "cen-tac-sc-pte_real.png": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Centro de Acopio - Universidad de las Ciencias de la Salud",
+    "organization": "Universidad de las Ciencias de la Salud (UCS)",
+    "description": "La población estudiantil de la UCS se une al centro de acopio de la Gran Base de Puente Real. Ante el terremoto que afectó a Caracas, cada aporte cuenta. Podés donar, ser voluntario o compartir.",
+    "location": {
+      "country": "Venezuela",
+      "state": "Táchira",
+      "city": "San Cristóbal",
+      "address": "Gran Base de Puente Real, San Cristóbal"
+    },
+    "coords": { "lat": 7.792, "lng": -72.218 }
+  },
+  "cen_pan_parque_omar.png": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Centro de Acopio - Parque Omar (Panamá)",
+    "organization": "Despacho de la Primera Dama - Parque Omar",
+    "description": "Venezuela nos necesita. Centro de acopio en la Casa Club del Parque Omar.",
+    "location": {
+      "country": "Panamá",
+      "state": "Panamá",
+      "city": "Ciudad de Panamá",
+      "address": "Casa Club, Parque Omar, Ciudad de Panamá"
+    },
+    "coords": { "lat": 8.9853, "lng": -79.5188 },
+    "schedule": "Jueves 25 y viernes 26: 8:00 a.m. a 8:00 p.m. · Sábado 27: 8:00 a.m. a 2:00 p.m."
+  },
+  "cen-imeca-ven.png": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Centro de Acopio - IMECA",
+    "organization": "IMECA",
+    "description": "Somos centro de acopio en todas nuestras tiendas a nivel nacional.",
+    "location": {
+      "country": "Venezuela",
+      "state": "",
+      "city": "",
+      "address": "Todas las tiendas IMECA a nivel nacional"
+    },
+    "coords": { "lat": 10.4806, "lng": -66.9036 },
+    "needs": [
+      "Alimentos no perecederos",
+      "Ropa y abrigos en buen estado",
+      "Agua potable",
+      "Sábanas, toallas y pañales",
+      "Medicinas e insumos médicos"
+    ],
+    "contact": { "phone": "+58 414-4300707" }
+  },
+  "cen-tac-ciro.png": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Centro de Acopio - CIRO",
+    "organization": "CIRO",
+    "description": "Apoyemos a Caracas y La Guaira.",
+    "location": {
+      "country": "Venezuela",
+      "state": "Táchira",
+      "city": "San Cristóbal",
+      "address": "Tiendas CIRO, Avenida Rotaria, calle 10 con 10, San Cristóbal"
+    },
+    "coords": { "lat": 7.7805, "lng": -72.2205 },
+    "schedule": "Hasta las 6:00 PM",
+    "needs": [
+      "Comida no perecedera",
+      "Comida para animales",
+      "Insumos médicos y botiquines",
+      "Ropa",
+      "Sábanas",
+      "Agua"
+    ]
+  },
+  "help-cagua.png": {
+    "category": "professional",
+    "title": "Centro Médico Cagua - Ecografías para afectados",
+    "organization": "Centro Médico Cagua",
+    "specialty": "Ecografía / Imagenología",
+    "description": "Brindamos apoyo ante la situación del terremoto: servicios ecográficos gratuitos a damnificados y afectados. Estudios convencionales, músculo-esqueléticos y abdominales (para embarazadas).",
+    "location": { "country": "Venezuela", "state": "Aragua", "city": "Cagua" },
+    "coords": { "lat": 10.1889, "lng": -67.4621 },
+    "contact": { "phone": "0424-3438402 / 0424-3678828" },
+    "people": [
+      { "name": "Centro Médico Cagua (CMC)", "specialty": "Ecografía / Imagenología", "contact": "0424-3438402 / 0424-3678828" }
+    ]
+  },
+  "cen-cga.webp": {
+    "category": "center",
+    "urgency": "high",
+    "title": "Donativos urgentes para residencia Codazzi",
+    "description": "Se necesita con urgencia para la residencia Codazzi, que no tiene luz, ni agua, ni gas.",
+    "location": {
+      "country": "Venezuela",
+      "state": "Aragua",
+      "city": "Cagua",
+      "address": "Punto de recolección: Redoma Gran Mariscal - CORINSA"
+    },
+    "coords": { "lat": 10.1875, "lng": -67.4608 },
+    "needs": ["Comida lista", "Pañales para adultos", "Hielo", "Perrarina"]
+  },
+  "cen-cle.webp": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Somos Centro de Acopio",
+    "organization": "Global Cargo",
+    "description": "Solo se va a recibir alimentos, insumos médicos y artículos de higiene personal. Nada de ropa ni otras cosas.",
+    "location": {
+      "country": "Chile",
+      "state": "Región Metropolitana",
+      "city": "Santiago",
+      "address": "Global Cargo - San Diego 101, Santiago de Chile"
+    },
+    "coords": { "lat": -33.4489, "lng": -70.6693 },
+    "schedule": "De viernes a domingo",
+    "needs": ["Alimentos", "Insumos médicos", "Artículos de higiene personal"],
+    "notes": "No se recibe ropa ni otras cosas. Las donaciones salen la semana siguiente."
+  },
+  "cen-tex.webp": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Ayuda Humanitaria para Nuestros Hermanos Venezolanos",
+    "organization": "Austin Venezuelan Association",
+    "description": "Venezuela enfrenta dos terremotos fatales. Aún se desconoce el número de víctimas. Tu solidaridad lleva esperanza.",
+    "location": {
+      "country": "Estados Unidos",
+      "state": "Texas",
+      "city": "Pflugerville",
+      "address": "Fogonero Restaurante, 800 W Pecan St, Pflugerville, TX 78660"
+    },
+    "coords": { "lat": 30.4394, "lng": -97.62 },
+    "schedule": "Domingo 28 de junio, desde las 11:00 AM",
+    "needs": [
+      "Ropa en buenas condiciones",
+      "Sábanas, cobijas y toallas",
+      "Alimentos no perecederos",
+      "Artículos de higiene personal (jabón, pasta dental, cepillos, toallas sanitarias)",
+      "Medicamentos de uso general (analgésicos, antibióticos, vitaminas, primeros auxilios)",
+      "Linternas, pilas, radios y encendedores"
+    ],
+    "acceptsMonetary": true
+  },
+  "cen-ula.webp": {
+    "category": "center",
+    "urgency": "high",
+    "title": "Centro de Acopio - Universidad de Los Andes Táchira",
+    "organization": "Universidad de Los Andes",
+    "description": "Caracas y La Guaira necesitan urgente nuestra ayuda.",
+    "location": {
+      "country": "Venezuela",
+      "state": "Táchira",
+      "city": "San Cristóbal",
+      "address": "Universidad de Los Andes, núcleo Táchira"
+    },
+    "coords": { "lat": 7.7669, "lng": -72.225 },
+    "needs": [
+      "Ropa",
+      "Sábanas",
+      "Agua",
+      "Alimentos no perecederos",
+      "Insumos médicos y de primeros auxilios",
+      "Comida para animales",
+      "Pañales para bebés y adultos"
+    ]
+  },
+  "cen-usa.webp": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Humanitarian Aid for Our Venezuelan Brothers and Sisters",
+    "organization": "Austin Venezuelan Association",
+    "description": "Venezuela is facing two devastating earthquakes. The number of victims is still unknown. Your solidarity brings hope.",
+    "location": {
+      "country": "Estados Unidos",
+      "state": "Texas",
+      "city": "Cedar Park"
+    },
+    "coords": { "lat": 30.5052, "lng": -97.8203 },
+    "schedule": "Sunday, June 28, starting at 11:00 AM",
+    "needs": [
+      "Clothing in good condition",
+      "Bed sheets, blankets and towels",
+      "Non-perishable food",
+      "Personal hygiene items (soap, toothpaste, toothbrushes, sanitary items)",
+      "Over-the-counter medications (pain relievers, antibiotics, vitamins, first aid supplies)",
+      "Flashlights, batteries, radios and candles"
+    ],
+    "acceptsMonetary": true,
+    "contact": { "website": "www.venezuelaenaustin.org" },
+    "collectionPoints": [
+      { "location": "Fogonero Restaurant, 800 W Pecan St, Pflugerville, TX 78660" },
+      { "location": "Fogonero Restaurant, 202 Walton Way, Cedar Park, TX 78613" }
+    ]
+  },
+  "cen-ven.webp": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Centros de Acopio en Venezuela",
+    "description": "Centros de acopio activos en Venezuela desde el jueves 25, desde las 9:00 am.",
+    "location": { "country": "Venezuela", "state": "", "city": "" },
+    "coords": { "lat": 10.4806, "lng": -66.9036 },
+    "schedule": "Jueves 25, desde las 9:00 am",
+    "needs": ["Ropa", "Medicamentos e insumos", "Agua", "Alimentos no perecederos", "Cobijas y sábanas"],
+    "collectionPoints": [
+      { "state": "Táchira", "location": "UCAT, sede vieja" },
+      { "state": "Táchira", "location": "ULA" },
+      { "state": "Táchira", "location": "UNET, Edf. A, sede de Ing. Civil" },
+      { "state": "Mérida", "location": "Colegio de Médicos" },
+      { "state": "Zulia", "location": "Rectorado nuevo de LUZ" },
+      { "state": "Distrito Capital", "location": "FCU-UCV" },
+      { "state": "Distrito Capital", "location": "Iglesia La Paz, Montalbán I" },
+      { "state": "Distrito Capital", "location": "Iglesia San Bernardino de Siena" },
+      { "state": "Miranda", "location": "Quinta El Bejucal. Cuarta av. de Altamira, entre novena y décima transversal" },
+      { "state": "Aragua", "location": "Av. 19 de abril, centro comercial La Capilla, piso 1, local 21" },
+      { "state": "Carabobo", "location": "Av. Monseñor Adams. El Viñedo, edificio Talislandia, mezzanina" }
+    ]
+  },
+  "help-cga.webp": {
+    "category": "center",
+    "urgency": "high",
+    "title": "Enfermería Unida - Jornada de Recolección",
+    "organization": "Enfermería Unida",
+    "description": "¡Cada granito cuenta! Nos unimos como una sola fuerza de enfermería para ayudar a quienes más lo necesitan. Insumos que se necesitan con urgencia.",
+    "location": {
+      "country": "Venezuela",
+      "state": "Aragua",
+      "city": "Cagua",
+      "address": "Centro Comercial La Pirámide, Cagua"
+    },
+    "coords": { "lat": 10.1902, "lng": -67.4651 },
+    "schedule": "9:00 AM",
+    "needs": [
+      "Gasas",
+      "Diclofenac potásico",
+      "Vitamina K",
+      "Dipirona",
+      "Guantes",
+      "Jeringas",
+      "Solución fisiológica / Ringer"
+    ]
+  },
+  "help-mcy.webp": {
+    "category": "professional",
+    "title": "Cirujano Pediatra - Servicios gratuitos",
+    "organization": "Nova Clinic",
+    "specialty": "Cirugía pediátrica",
+    "description": "Como cirujano pediatra, ofrezco de forma gratuita mis servicios a niños afectados en Nova Clinic: cualquier niño con traumatismo abdominal, torácico o que requiera alguna sutura.",
+    "location": { "country": "Venezuela", "state": "Aragua", "city": "Maracay" },
+    "coords": { "lat": 10.2469, "lng": -67.5958 },
+    "contact": { "phone": "0424-305-2473", "instagram": "@sucirujanopediatra" },
+    "people": [
+      {
+        "name": "Dr. Jimmy Laya",
+        "specialty": "Cirujano pediatra",
+        "contact": "0424-305-2473"
+      }
+    ]
+  },
+  "help-psi-2.webp": {
+    "category": "professional",
+    "title": "Servicio de Ayuda Psicológica",
+    "organization": "Colegio de Psicólogos del Estado Anzoátegui",
+    "specialty": "Psicología",
+    "description": "Servicio de Primeros Auxilios Psicológicos: un espacio seguro de contención emocional, escucha activa y herramientas de afrontamiento inmediato, de forma gratuita y online para todas las personas afectadas.",
+    "location": { "country": "Venezuela", "state": "Anzoátegui", "city": "Barcelona" },
+    "coords": { "lat": 10.134, "lng": -64.6836 },
+    "people": [
+      { "name": "Laura Sánchez", "specialty": "Psicología", "registry": "FPV 14.235", "contact": "0414-9643597" },
+      { "name": "Joaquín Rodríguez", "specialty": "Psicología", "registry": "FPV 17.825", "contact": "0412-8025531" },
+      { "name": "Karina San Martín", "specialty": "Psicología", "registry": "FPV 8.102", "contact": "0424-8376495" },
+      { "name": "Carlos Carrillo", "specialty": "Psicología", "registry": "FPV 19.949", "contact": "0414-8204720" },
+      { "name": "Edilia Devera", "specialty": "Psicología", "registry": "FPV 1.177", "contact": "0414-0901348" },
+      { "name": "María Mora", "specialty": "Psicología", "registry": "FPV 5.453", "contact": "0412-7098380" },
+      { "name": "Steffany Vizcaíno", "specialty": "Psicología", "registry": "FPV 11.070", "contact": "0414-8412529" }
+    ]
+  },
+  "help-psic.webp": {
+    "category": "professional",
+    "title": "Atención Psicológica y Contención Emocional Gratuita",
+    "organization": "OBE-UCV (Universidad Central de Venezuela)",
+    "specialty": "Psicología",
+    "description": "El Departamento de Psicología de OBE-UCV activa su servicio de Atención Psicológica y Contención Emocional Gratuita para toda la comunidad ucevista.",
+    "location": { "country": "Venezuela", "state": "Distrito Capital", "city": "Caracas" },
+    "coords": { "lat": 10.4895, "lng": -66.8915 },
+    "contact": { "phone": "0424-8079615", "whatsapp": "0424-8079615" },
+    "notes": "Para solicitar la atención, escribir vía mensaje de texto o WhatsApp."
+  },
+  "help-tac-torbes.png": {
+    "category": "center",
+    "urgency": "high",
+    "title": "Centro de Acopio - Rotary / Rotaract / Interact y Cruz Roja",
+    "organization": "Rotary, Rotaract, Interact y Cruz Roja",
+    "description": "Necesitamos de manera urgente herramientas, material médico, útiles de aseo personal y alimentos.",
+    "location": {
+      "country": "Venezuela",
+      "state": "Táchira",
+      "city": "San Cristóbal",
+      "address": "Centro de acopio: Revista Rotaria, frente a la Cruz Roja"
+    },
+    "coords": { "lat": 7.746, "lng": -72.227 },
+    "needs": [
+      "Herramientas: palas, cascos, linternas, botas y guantes de trabajo",
+      "Material médico: alcohol, agua oxigenada, algodón, gasas, yodo, antialérgicos, analgésicos, antihipertensivos y antitusígenos",
+      "Útiles de aseo personal: jabón corporal, papel higiénico, toallas sanitarias, pañales de niños y adultos",
+      "Alimentos no perecederos"
+    ],
+    "contact": { "phone": "+58 414-5238188 / +58 414-7121207" },
+    "notes": "Abstenerse de traer ropa o zapatos: esta necesidad ya fue cubierta."
+  },
+  "help-tac-4.png": {
+    "category": "center",
+    "urgency": "low",
+    "title": "Centro de Acopio - Drovenplus Táchira",
+    "organization": "Drovenplus Táchira C.A.",
+    "description": "En Drovenplus Táchira C.A. creemos firmemente en el poder de la unión. Por eso, hemos habilitado nuestras oficinas como centro de acopio para los afectados por los terremotos que sacudieron nuestro país.",
+    "location": { "country": "Venezuela", "state": "Táchira", "city": "San Cristóbal" },
+    "coords": { "lat": 7.77, "lng": -72.23 },
+    "schedule": "Horario de recepción: de lunes a viernes, desde las 8:00 a.m. hasta las 5:00 p.m.",
+    "needs": [
+      "Alimentos no perecederos",
+      "Agua embotellada",
+      "Ropa y zapatos en buen estado",
+      "Artículos de higiene personal y de primeros auxilios",
+      "Sábanas, cobijas"
+    ],
+    "collectionPoints": [
+      { "location": "Oficina San Cristóbal: Av. Ferrero Tamayo, C.F. Santafé, piso 2, oficina 08, San Cristóbal - Estado Táchira" },
+      { "location": "Oficina San Juan de Colón: Carrera 10, entre calles 9 y 10, Centro Panamericano, Barrio La Esperanza, San Juan de Colón - Estado Táchira" }
+    ]
+  },
+  "help-tac.png": {
+    "category": "center",
+    "urgency": "high",
+    "title": "¡Recolectemos Juntos! - UNET",
+    "organization": "Estudiantes de la UNET",
+    "description": "Jóvenes venezolanos, estudiantes de la UNET, organizan una jornada de recolección de ayuda. Tu aporte puede marcar una diferencia y brindar esperanza a quien más lo necesita.",
+    "location": { "country": "Venezuela", "state": "Táchira", "city": "San Cristóbal" },
+    "coords": { "lat": 7.76, "lng": -72.221 },
+    "schedule": "09:00 am (solo el 25 de junio)",
+    "needs": ["Comida no perecedera", "Medicinas", "Agua potable", "Linternas y cargadores"],
+    "collectionPoints": [
+      { "location": "Hall del edificio B, Centro de Estudiantes de Arquitectura" },
+      { "location": "Centro de Estudiantes de Ingeniería Civil" },
+      { "location": "Entrada de la Universidad Nacional Experimental del Táchira (UNET), solo el 25 de junio" }
+    ]
+  },
+  "help-tac-2.png": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Centros de acopio en San Cristóbal",
+    "location": { "country": "Venezuela", "state": "Táchira", "city": "San Cristóbal" },
+    "coords": { "lat": 7.7745, "lng": -72.2189 },
+    "notes": "Recuerden llevar las cosas en orden: comida, ropa por talla, sábanas, enlatados, medicina para niños y lo que puedan.",
+    "collectionPoints": [
+      { "location": "ULA Táchira" },
+      { "location": "Unet" },
+      { "location": "UCAT sede vieja" },
+      { "location": "Madeco" },
+      { "location": "Colegio de Abogados" },
+      { "location": "C.C. Bulevard Los Mangos" }
+    ]
+  },
+  "help-tac-3.png": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Centro de Acopio Coral del Táchira",
+    "organization": "Coral del Táchira",
+    "description": "Recibiremos donativos desde la 1:30 pm hasta las 7:00 pm.",
+    "location": {
+      "country": "Venezuela",
+      "state": "Táchira",
+      "city": "San Cristóbal",
+      "address": "Sede oficial de la Coral del Táchira, Urb. Las Acacias, carrera 4, al lado del Colegio José Félix Ribas"
+    },
+    "coords": { "lat": 7.772, "lng": -72.218 },
+    "schedule": "Desde la 1:30 pm hasta las 7:00 pm",
+    "needs": [
+      "Medicamentos e insumos",
+      "Ropa en buen estado",
+      "Alimentos no perecederos",
+      "Agua potable",
+      "Cobijas",
+      "Alimento para mascotas"
+    ],
+    "contact": { "phone": "0247-633661 / 0414-7076342" }
+  },
+  "cen-tac-sambil.png": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Centro de Acopio - Sambil San Cristóbal",
+    "organization": "Sambil San Cristóbal",
+    "description": "Unidos por Venezuela. Sambil San Cristóbal habilita el módulo de información en la entrada Brisas del Torbes como centro de acopio para recibir ayuda de toda la comunidad.",
+    "location": {
+      "country": "Venezuela",
+      "state": "Táchira",
+      "city": "San Cristóbal",
+      "address": "Módulo de información, entrada Brisas del Torbes, Sambil San Cristóbal"
+    },
+    "coords": { "lat": 7.742, "lng": -72.218 }
+  },
+  "cen-tac-las_lomas.png": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Centro de Acopio - TECHAR",
+    "organization": "TECHAR",
+    "description": "¡Apoyo a Venezuela! Únete a nuestro centro de acopio.",
+    "location": {
+      "country": "Venezuela",
+      "state": "Táchira",
+      "city": "San Cristóbal",
+      "address": "Las Lomas, San Cristóbal"
+    },
+    "coords": { "lat": 7.79, "lng": -72.205 },
+    "notes": "Punto de recepción: San Cristóbal. Detalle de insumos no legible en el aviso original."
+  },
+  "help-tac-santa_ana.png": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Centro de Acopio - Operación Todos con VZLA",
+    "organization": "Operación Todos con VZLA",
+    "location": {
+      "country": "Venezuela",
+      "state": "Táchira",
+      "city": "Santa Ana",
+      "address": "Calle 11 esquina carrera 2, Las Golondrinas, casa del Dr. Arias, Santa Ana, municipio Córdoba"
+    },
+    "coords": { "lat": 7.566, "lng": -72.233 },
+    "schedule": "7:00 a.m. a 8:00 p.m.",
+    "needs": [
+      "Agua potable",
+      "Alimentos no perecederos",
+      "Insumos médicos",
+      "Ropa y abrigos"
+    ],
+    "contact": { "phone": "0416-1748125" }
+  },
+  "help-tac-mirador.png": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Donación por Venezuela - Mirador Jardín Metropolitano",
+    "description": "Cada grano de arena cuenta. Cualquier aporte es bienvenido.",
+    "location": {
+      "country": "Venezuela",
+      "state": "Táchira",
+      "city": "San Cristóbal",
+      "address": "Mirador Vía Jardín Metropolitano, diagonal al COMAS, en la antigua ferretería Macoherca, San Cristóbal"
+    },
+    "coords": { "lat": 7.7852, "lng": -72.2148 },
+    "needs": [
+      "Medicina",
+      "Agua",
+      "Alimentos no perecederos",
+      "Ropa",
+      "Cobijas"
+    ]
+  },
+  "help-tac-sc.png": {
+    "category": "center",
+    "urgency": "high",
+    "title": "Centro de Acopio - Línea Unión Rómulo Gallegos",
+    "organization": "Línea Unión Rómulo Gallegos A.C.",
+    "description": "Hoy Venezuela se abraza más fuerte que nunca. Llamado a la solidaridad: ayuda para las familias afectadas por el sismo y recolección de suministros.",
+    "location": {
+      "country": "Venezuela",
+      "state": "Táchira",
+      "city": "San Cristóbal",
+      "address": "Sede Línea Unión Rómulo Gallegos A.C., Calle 6 entre carreras 9 y 10, N° 6-5, Centro, San Cristóbal"
+    },
+    "coords": { "lat": 7.7656, "lng": -72.223 },
+    "schedule": "Viernes de 8:00 am a 4:00 pm",
+    "needs": [
+      "Alimentos no perecederos",
+      "Suero oral",
+      "Pañales para bebés y adultos",
+      "Ropa",
+      "Sábanas",
+      "Agua potable",
+      "Medicamentos e insumos médicos",
+      "Calzado"
+    ]
+  },
+  "help-tac-sofitasa-sc.png": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Centro de Acopio - Sofitasa",
+    "organization": "Sofitasa",
+    "description": "¡Sofitasa se une a esta causa! Todas nuestras agencias del Táchira son centros de acopio.",
+    "location": {
+      "country": "Venezuela",
+      "state": "Táchira",
+      "city": "San Cristóbal",
+      "address": "Todas las agencias de Sofitasa en el Táchira"
+    },
+    "coords": { "lat": 7.7689, "lng": -72.2256 },
+    "schedule": "Viernes 26 de junio, desde las 8:30 am",
+    "needs": [
+      "Ropa limpia",
+      "Sábanas y cobijas",
+      "Agua potable",
+      "Alimentos no perecederos",
+      "Insumos médicos y primeros auxilios",
+      "Pañales para bebés y adultos"
+    ]
+  },
+  "help-tac-uts-sc.png": {
+    "category": "center",
+    "urgency": "medium",
+    "title": "Centro de Acopio - IUT Antonio José de Sucre",
+    "organization": "Instituto Tecnológico Antonio José de Sucre",
+    "description": "Ayudemos juntos a las ciudades afectadas.",
+    "location": {
+      "country": "Venezuela",
+      "state": "Táchira",
+      "city": "San Cristóbal",
+      "address": "Instituto Tecnológico Antonio José de Sucre, Carrera 17 entre calles 9 y 10, N° 7-54, Edif. Doña María, Barrio Obrero, San Cristóbal"
+    },
+    "coords": { "lat": 7.7585, "lng": -72.231 },
+    "schedule": "A partir del lunes 29/06. Horario: 8:00 am a 12:00 pm y 3:00 pm a 5:00 pm",
+    "needs": [
+      "Medicamentos",
+      "Alimentos no perecederos",
+      "Ropa de niño y adulto",
+      "Agua potable",
+      "Alimentos para animales"
+    ]
+  }
+}

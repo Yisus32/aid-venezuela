@@ -1,0 +1,238 @@
+---
+// AID-04: Social channels. A static site (no backend, no API keys) cannot
+// aggregate a live X/TikTok feed in-page — X retired hashtag-timeline embeds and
+// TikTok has no keyless hashtag feed. So we give one-tap access to the LIVE
+// search results on each platform (always current), and document the limitation.
+// Hashtags are easy to extend: just edit this array.
+const HASHTAGS = [
+  "SismoVenezuela",
+  "TerremotoVenezuela",
+  "AcopioVzla",
+  "FuerzaVenezuela",
+];
+const TEXT_SEARCHES = ["sismo Venezuela", "terremoto Venezuela"];
+
+const xSearch = (q: string) =>
+  `https://x.com/search?q=${encodeURIComponent(q)}&f=live`;
+const tiktokTag = (t: string) => `https://www.tiktok.com/tag/${t.toLowerCase()}`;
+const tiktokSearch = (q: string) =>
+  `https://www.tiktok.com/search?q=${encodeURIComponent(q)}`;
+---
+
+<section id="tab-canales" class="tab-panel">
+  <header class="panel-head">
+    <p class="panel-eyebrow">Cobertura en vivo</p>
+    <h2 class="panel-title">Canales sociales</h2>
+    <p class="panel-intro">
+      Acceso directo a las publicaciones y transmisiones en vivo sobre el
+      terremoto en X y TikTok. Cada enlace abre los resultados más recientes en
+      una pestaña nueva.
+    </p>
+  </header>
+
+  <div class="bar">
+    <button type="button" id="ch-reload" class="reload">Actualizar</button>
+    <span class="updated">Abierto: <span id="ch-time">—</span></span>
+  </div>
+
+  <div class="channels">
+    <article class="channel x">
+      <header class="ch-head">
+        <img
+          class="ch-badge"
+          src="https://x.com/favicon.ico"
+          alt="Logo de X"
+          width="38"
+          height="38"
+          loading="lazy"
+          onerror="this.style.display='none'"
+        />
+        <div>
+          <h3>X.com</h3>
+          <p>Publicaciones, hilos y Spaces en vivo</p>
+        </div>
+      </header>
+      <p class="ch-label">Hashtags en vivo</p>
+      <div class="chips">
+        {HASHTAGS.map((h) => (
+          <a class="chip" href={xSearch(`#${h}`)} target="_blank" rel="noopener noreferrer">
+            #{h}
+          </a>
+        ))}
+      </div>
+      <p class="ch-label">Búsquedas</p>
+      <div class="chips">
+        {TEXT_SEARCHES.map((q) => (
+          <a class="chip ghost" href={xSearch(q)} target="_blank" rel="noopener noreferrer">
+            {q} ↗
+          </a>
+        ))}
+      </div>
+      <a class="ch-cta" href={xSearch("#SismoVenezuela")} target="_blank" rel="noopener noreferrer">
+        Ver feed en vivo en X ↗
+      </a>
+    </article>
+
+    <article class="channel tiktok">
+      <header class="ch-head">
+        <img
+          class="ch-badge"
+          src="https://www.tiktok.com/favicon.ico"
+          alt="Logo de TikTok"
+          width="38"
+          height="38"
+          loading="lazy"
+          onerror="this.style.display='none'"
+        />
+        <div>
+          <h3>TikTok</h3>
+          <p>Lives, videos y transmisiones</p>
+        </div>
+      </header>
+      <p class="ch-label">Hashtags en vivo</p>
+      <div class="chips">
+        {HASHTAGS.map((h) => (
+          <a class="chip" href={tiktokTag(h)} target="_blank" rel="noopener noreferrer">
+            #{h}
+          </a>
+        ))}
+      </div>
+      <p class="ch-label">Búsquedas</p>
+      <div class="chips">
+        {TEXT_SEARCHES.map((q) => (
+          <a class="chip ghost" href={tiktokSearch(q)} target="_blank" rel="noopener noreferrer">
+            {q} ↗
+          </a>
+        ))}
+      </div>
+      <a class="ch-cta" href={tiktokSearch("terremoto venezuela")} target="_blank" rel="noopener noreferrer">
+        Ver lives en TikTok ↗
+      </a>
+    </article>
+  </div>
+
+  <p class="ch-note">
+    <strong>Sobre este feed:</strong> el sitio es estático y no tiene servidor ni
+    claves de API, y tanto X como TikTok restringen el feed de hashtags por
+    terceros. Por eso enlazamos a los resultados <em>en vivo</em> de cada
+    plataforma en vez de incrustarlos. Para un feed integrado haría falta un
+    backend con la API de X y acceso a TikTok.
+  </p>
+</section>
+
+<script>
+  const root = document.getElementById("tab-canales");
+  if (root) {
+    const timeEl = root.querySelector("#ch-time");
+    const stamp = () => {
+      if (timeEl)
+        timeEl.textContent = new Date().toLocaleTimeString("es-VE", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+    };
+    stamp();
+    root.querySelector("#ch-reload")?.addEventListener("click", stamp);
+  }
+</script>
+
+<style>
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .bar { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .reload {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 13px;
+    padding: 9px 16px;
+    border: none;
+    border-radius: 8px;
+    background: var(--gold);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .reload:hover { background: var(--gold-deep); color: #fff; }
+  .updated { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+
+  .channels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    max-width: 860px;
+  }
+
+  .channel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .channel.x { border-top: 3px solid #111; }
+  .channel.tiktok { border-top: 3px solid #ee1d52; }
+
+  .ch-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  /* Favicon avatar (AID-10): site favicon framed for visual consistency. */
+  .ch-badge {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    flex-shrink: 0;
+    object-fit: contain;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    padding: 5px;
+  }
+  .ch-head h3 { font-family: var(--font-display); font-size: 17px; margin: 0; color: var(--ink); }
+  .ch-head p { font-size: 12px; color: var(--muted); margin: 2px 0 0; }
+
+  .ch-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 6px 0 0;
+  }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 5px 11px;
+    border-radius: 20px;
+    background: var(--ink);
+    color: #fff;
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+  .chip:hover { background: var(--ink-soft); }
+  .chip.ghost { background: var(--paper); color: var(--ink); border: 1px solid var(--line); }
+  .chip.ghost:hover { border-color: var(--ink); }
+
+  .ch-cta {
+    margin-top: 8px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--gold-deep);
+    text-decoration: none;
+  }
+  .ch-cta:hover { text-decoration: underline; }
+
+  .ch-note {
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin: 22px 0 0;
+    max-width: 720px;
+    padding: 14px 16px;
+    background: var(--card);
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+  }
+  .ch-note strong { color: var(--text); }
+</style>

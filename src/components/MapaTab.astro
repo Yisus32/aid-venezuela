@@ -1,0 +1,651 @@
+---
+import type { ImageEntry } from "../types";
+import { VE_STATE_COORDS, compilationStates } from "../lib/centers";
+
+interface Props {
+  entries: ImageEntry[];
+}
+
+const { entries } = Astro.props;
+
+interface MapPoint {
+  id: string;
+  lat: number;
+  lng: number;
+  category: ImageEntry["category"];
+  title: string;
+  org: string;
+  detail: string;
+  country: string;
+  state: string;
+  needs: string[];
+  phone: string;
+  people: { name: string; contact: string }[];
+}
+
+// Build map points. A multi-state compilation (one flyer listing points across
+// several states) is exploded into one marker per point, placed in its state.
+const points: MapPoint[] = [];
+for (const e of entries) {
+  const states = compilationStates(e);
+  if (states) {
+    (e.collectionPoints || []).forEach((p, i) => {
+      const base = p.state ? VE_STATE_COORDS[p.state] : undefined;
+      if (!base) return;
+      points.push({
+        id: `${e.filename}#${i}`,
+        lat: base.lat + ((i % 3) - 1) * 0.05,
+        lng: base.lng + (Math.floor(i / 3) - 1) * 0.05,
+        category: e.category,
+        title: p.location,
+        org: e.title,
+        detail: p.state || "",
+        country: e.location.country || "Sin especificar",
+        state: p.state || "Sin especificar",
+        needs: (e.needs || []).slice(0, 6),
+        phone: "",
+        people: [],
+      });
+    });
+  } else if (e.coords) {
+    points.push({
+      id: e.filename,
+      lat: e.coords.lat,
+      lng: e.coords.lng,
+      category: e.category,
+      title: e.title,
+      org: e.organization || "",
+      detail:
+        e.location.address ||
+        [e.location.city, e.location.state].filter(Boolean).join(", "),
+      country: e.location.country || "Sin especificar",
+      state: e.location.state || "Sin especificar",
+      needs: (e.needs || []).slice(0, 6),
+      phone: e.contact?.phone || "",
+      // Surface every listed professional's phone in the map popup (AID: psi-2
+      // gathers several psychologists under one location).
+      people: (e.people || [])
+        .filter((pp) => pp.contact)
+        .map((pp) => ({ name: pp.name, contact: pp.contact || "" })),
+    });
+  }
+}
+
+// Group the side list by country -> state (Venezuela first).
+const grouped = points.reduce(
+  (acc, p) => {
+    (acc[p.country] ??= {});
+    (acc[p.country][p.state] ??= []).push(p);
+    return acc;
+  },
+  {} as Record<string, Record<string, typeof points>>,
+);
+const countries = Object.keys(grouped).sort((a, b) => {
+  if (a === "Venezuela") return -1;
+  if (b === "Venezuela") return 1;
+  return a.localeCompare(b);
+});
+
+const acopiosCount = points.filter((p) => p.category === "center").length;
+const personalCount = points.filter((p) => p.category === "professional").length;
+---
+
+<section id="tab-mapa" class="tab-panel">
+  <header class="panel-head">
+    <p class="panel-eyebrow">Mapa de puntos</p>
+    <h2 class="panel-title">Todo sobre el terreno</h2>
+    <p class="panel-intro">
+      Centros de acopio, ayuda profesional y los sismos recientes de la región,
+      centrados en Venezuela. Usa la lupa del mapa para buscar cualquier lugar.
+    </p>
+  </header>
+
+  <div class="legend" role="group" aria-label="Filtrar puntos por tipo">
+    <button type="button" class="lg active" data-type="center" aria-pressed="true">
+      <span class="lg-dot center"></span> Acopios (<span class="lg-n">{acopiosCount}</span>)
+    </button>
+    <button type="button" class="lg active" data-type="professional" aria-pressed="true">
+      <span class="lg-dot prof"></span> Personal (<span class="lg-n">{personalCount}</span>)
+    </button>
+    <button type="button" class="lg active" data-type="quake" aria-pressed="true">
+      <span class="lg-dot quake"></span> Sismos recientes <span id="quake-count" class="lg-n">…</span>
+    </button>
+    <span class="quake-src">Sismos: USGS, en tiempo real</span>
+    <button type="button" id="quake-refresh" class="map-reset ghost">⟳ Actualizar sismos</button>
+    <button type="button" id="map-reset" class="map-reset">⟲ Centrar en Venezuela</button>
+  </div>
+  <p id="quake-error" class="quake-error" hidden>
+    No se pudieron cargar los sismos en este momento.
+  </p>
+
+  <div class="map-layout">
+    <div id="map" class="map-pane" role="application" aria-label="Mapa de puntos de ayuda y sismos"></div>
+
+    <div class="list-pane" id="map-list">
+      <div class="list-filters">
+        <select id="map-country" aria-label="Filtrar por país">
+          <option value="">Todos los países</option>
+          {countries.map((c) => <option value={c}>{c}</option>)}
+        </select>
+        <select id="map-state" aria-label="Filtrar por estado">
+          <option value="">Todos los estados</option>
+        </select>
+      </div>
+
+      {countries.map((country) => (
+        <div class="country-block">
+          <h3 class="country-name">{country}</h3>
+          {Object.entries(grouped[country])
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([state, items]) => (
+              <div class="state-block">
+                <h4 class="state-name">
+                  {state} <span class="count">{items.length}</span>
+                </h4>
+                <ul class="point-list">
+                  {items.map((p) => (
+                    <li class="point-item" data-cat={p.category} data-country={p.country} data-state={p.state}>
+                      <button type="button" class={`point ${p.category}`} data-id={p.id}>
+                        <span class="dot" />
+                        <span class="point-text">
+                          <strong>{p.title}</strong>
+                          {p.detail && <span class="point-detail">{p.detail}</span>}
+                        </span>
+                        <span class="badge">
+                          {p.category === "center" ? "Acopio" : "Personal"}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+        </div>
+      ))}
+      <p id="list-empty" class="list-empty" hidden>No hay puntos con los filtros activos.</p>
+    </div>
+  </div>
+</section>
+
+<script is:inline define:vars={{ points }}>
+  (function () {
+    function start() {
+      if (typeof L === "undefined") return setTimeout(start, 100);
+      const mapEl = document.getElementById("map");
+      if (!mapEl || mapEl.dataset.ready) return;
+      mapEl.dataset.ready = "1";
+
+      const map = L.map(mapEl, { scrollWheelZoom: false }).setView([8, -66], 6);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "© OpenStreetMap",
+      }).addTo(map);
+
+      // Global location search (Nominatim) — fulfills the AID-01 search requirement.
+      if (L.Control && L.Control.Geocoder) {
+        L.Control.geocoder({ defaultMarkGeocode: true, placeholder: "Buscar lugar…" }).addTo(map);
+      }
+
+      const ICON = {
+        center:
+          '<path d="M12 6v12M6 12h12" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>',
+        professional:
+          '<path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-1A3.5 3.5 0 0 0 8 17.5V19M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+        quake:
+          '<path d="M4 12h3l2-5 3 10 2-5 1 2h5" fill="none" stroke="#3a2c00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+      };
+      const COLOR = { center: "#2563eb", professional: "#dc2626", quake: "#eab308" };
+
+      function pin(type, size) {
+        const s = size || 30;
+        return L.divIcon({
+          className: "mk-wrap",
+          iconSize: [s, s],
+          iconAnchor: [s / 2, s / 2],
+          popupAnchor: [0, -s / 2],
+          html:
+            '<span class="mk" style="background:' +
+            COLOR[type] +
+            ';width:' + s + 'px;height:' + s + 'px">' +
+            '<svg viewBox="0 0 24 24">' + ICON[type] + "</svg></span>",
+        });
+      }
+
+      const esc = (s) =>
+        String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+      // One Leaflet layer per type so the legend can toggle each on/off.
+      const layers = {
+        center: L.layerGroup().addTo(map),
+        professional: L.layerGroup().addTo(map),
+        quake: L.layerGroup().addTo(map),
+      };
+
+      // Humanitarian markers from the static metadata.
+      const markers = {};
+      const humMarkers = [];
+      points.forEach((p) => {
+        const m = L.marker([p.lat, p.lng], { icon: pin(p.category) });
+        let html =
+          '<strong class="pop-title">' + esc(p.title) + "</strong>";
+        if (p.org) html += '<div class="pop-org">' + esc(p.org) + "</div>";
+        if (p.detail) html += '<div class="pop-detail">' + esc(p.detail) + "</div>";
+        if (p.needs && p.needs.length)
+          html += '<div class="pop-needs"><b>Necesita:</b> ' + esc(p.needs.join(" · ")) + "</div>";
+        if (p.phone)
+          html +=
+            '<div class="pop-phone"><a href="tel:' +
+            esc(p.phone.replace(/[^\d+]/g, "")) +
+            '">' + esc(p.phone) + "</a></div>";
+        if (p.people && p.people.length) {
+          html += '<div class="pop-people"><b>Contactos:</b>';
+          p.people.forEach((pp) => {
+            html +=
+              '<div class="pop-person"><span>' + esc(pp.name) + "</span>" +
+              '<a href="tel:' + esc(pp.contact.replace(/[^\d+]/g, "")) + '">' +
+              esc(pp.contact) + "</a></div>";
+          });
+          html += "</div>";
+        }
+        m.bindPopup(html);
+        layers[p.category].addLayer(m);
+        markers[p.id] = m;
+        humMarkers.push({ m: m, category: p.category, country: p.country, state: p.state });
+      });
+
+      // Side-list click pans to the marker.
+      document.querySelectorAll(".point[data-id]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const m = markers[btn.dataset.id];
+          if (!m) return;
+          map.setView(m.getLatLng(), 13, { animate: true });
+          m.openPopup();
+        });
+      });
+
+      // Legend = type filter. Toggling hides/shows that type on the map and
+      // (for acopios/personal) in the side list.
+      const active = { center: true, professional: true, quake: true };
+      const listItems = Array.prototype.slice.call(
+        document.querySelectorAll("#map-list .point-item"),
+      );
+
+      // Hierarchical geo filter (Country -> State) over list AND markers.
+      const geoCountrySel = document.getElementById("map-country");
+      const geoStateSel = document.getElementById("map-state");
+      function geoMatch(country, state) {
+        const c = geoCountrySel ? geoCountrySel.value : "";
+        const s = geoStateSel ? geoStateSel.value : "";
+        return (!c || country === c) && (!s || state === s);
+      }
+      function applyGeo() {
+        humMarkers.forEach((h) => {
+          if (geoMatch(h.country, h.state)) layers[h.category].addLayer(h.m);
+          else layers[h.category].removeLayer(h.m);
+        });
+      }
+      function rebuildGeoStates() {
+        if (!geoCountrySel || !geoStateSel) return;
+        const c = geoCountrySel.value;
+        const states = listItems
+          .filter((li) => !c || li.dataset.country === c)
+          .map((li) => li.dataset.state)
+          .filter(Boolean);
+        const uniq = [];
+        states.forEach((s) => {
+          if (uniq.indexOf(s) < 0) uniq.push(s);
+        });
+        uniq.sort((a, b) => a.localeCompare(b, "es"));
+        const prev = geoStateSel.value;
+        geoStateSel.innerHTML = '<option value="">Todos los estados</option>';
+        uniq.forEach((s) => {
+          const o = document.createElement("option");
+          o.value = s;
+          o.textContent = s;
+          geoStateSel.appendChild(o);
+        });
+        geoStateSel.value = uniq.indexOf(prev) >= 0 ? prev : "";
+      }
+
+      function refreshList() {
+        listItems.forEach((li) => {
+          li.hidden = !(
+            active[li.dataset.cat] && geoMatch(li.dataset.country, li.dataset.state)
+          );
+        });
+        document.querySelectorAll("#map-list .state-block").forEach((g) => {
+          g.hidden = !Array.prototype.some.call(
+            g.querySelectorAll(".point-item"),
+            (i) => !i.hidden,
+          );
+        });
+        document.querySelectorAll("#map-list .country-block").forEach((g) => {
+          g.hidden = !Array.prototype.some.call(
+            g.querySelectorAll(".state-block"),
+            (x) => !x.hidden,
+          );
+        });
+        const empty = document.getElementById("list-empty");
+        if (empty) empty.hidden = listItems.some((i) => !i.hidden);
+      }
+      document.querySelectorAll(".lg[data-type]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const t = btn.dataset.type;
+          active[t] = !active[t];
+          btn.classList.toggle("active", active[t]);
+          btn.setAttribute("aria-pressed", String(active[t]));
+          if (active[t]) map.addLayer(layers[t]);
+          else map.removeLayer(layers[t]);
+          if (t !== "quake") refreshList();
+        });
+      });
+
+      // Country -> State cascade for the list/marker geo filter.
+      if (geoCountrySel) {
+        geoCountrySel.addEventListener("change", () => {
+          rebuildGeoStates();
+          applyGeo();
+          refreshList();
+        });
+      }
+      if (geoStateSel) {
+        geoStateSel.addEventListener("change", () => {
+          applyGeo();
+          refreshList();
+        });
+      }
+      rebuildGeoStates();
+
+      // Reset button: recenter on Venezuela and turn all filters back on.
+      function resetMap() {
+        map.closePopup();
+        map.setView([8, -66], 6);
+        ["center", "professional", "quake"].forEach((t) => {
+          if (!active[t]) {
+            active[t] = true;
+            map.addLayer(layers[t]);
+          }
+          const b = document.querySelector('.lg[data-type="' + t + '"]');
+          if (b) {
+            b.classList.add("active");
+            b.setAttribute("aria-pressed", "true");
+          }
+        });
+        if (geoCountrySel) geoCountrySel.value = "";
+        if (geoStateSel) geoStateSel.value = "";
+        rebuildGeoStates();
+        applyGeo();
+        refreshList();
+      }
+      document.getElementById("map-reset")?.addEventListener("click", resetMap);
+
+      // Real-time earthquakes from USGS. We use the magnitude-filtered monthly
+      // GeoJSON feed (CORS-enabled, no key) and clip to the Venezuela region.
+      // Loaded lazily the first time the Mapa tab is opened so the ~1.4 MB
+      // feed never downloads for users who don't open the map.
+      const BBOX = { minLat: 0, maxLat: 14, minLng: -74, maxLng: -59 };
+      const FEED =
+        "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_month.geojson";
+      const qCountEl = document.getElementById("quake-count");
+      const qBtn = document.getElementById("quake-refresh");
+      const qErr = document.getElementById("quake-error");
+      let quakesLoaded = false;
+
+      // `force` re-queries USGS on demand (refresh button); otherwise it's the
+      // lazy first load when the tab opens. A cache-buster avoids a stale CDN copy.
+      function loadQuakes(force) {
+        if (quakesLoaded && !force) return;
+        quakesLoaded = true;
+        if (qBtn) qBtn.disabled = true;
+        if (qErr) qErr.hidden = true;
+        if (qCountEl) qCountEl.textContent = "…";
+        layers.quake.clearLayers();
+        const url = force ? FEED + "?t=" + Math.floor(Date.now() / 1000) : FEED;
+        fetch(url)
+          .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+          .then((data) => {
+            const feats = (data.features || []).filter((f) => {
+              if (!f.geometry) return false;
+              const [lng, lat] = f.geometry.coordinates;
+              return (
+                lat > BBOX.minLat && lat < BBOX.maxLat &&
+                lng > BBOX.minLng && lng < BBOX.maxLng
+              );
+            });
+            feats.forEach((f) => {
+              const [lng, lat] = f.geometry.coordinates;
+              const mag = f.properties.mag;
+              const size = Math.max(20, Math.min(40, 16 + (mag || 1) * 4));
+              const when = new Date(f.properties.time).toLocaleString("es-VE");
+              const qm = L.marker([lat, lng], { icon: pin("quake", size) }).bindPopup(
+                '<strong class="pop-title">M ' + (mag ?? "?") + "</strong>" +
+                  '<div class="pop-detail">' + esc(f.properties.place || "") + "</div>" +
+                  '<div class="pop-detail">' + when + "</div>",
+              );
+              layers.quake.addLayer(qm);
+            });
+            if (qCountEl) qCountEl.textContent = "(" + feats.length + ")";
+          })
+          .catch(() => {
+            if (qErr) qErr.hidden = false;
+            if (qCountEl) qCountEl.textContent = "(0)";
+          })
+          .finally(() => {
+            if (qBtn) qBtn.disabled = false;
+          });
+      }
+      if (qBtn) qBtn.addEventListener("click", () => loadQuakes(true));
+
+      // When the Mapa tab becomes visible (it starts hidden): fix the map size
+      // and lazily load the earthquakes. Fired by sidebar tabs, dashboard cards
+      // and hash deep-links alike via the shared "tabchange" event.
+      document.addEventListener("tabchange", (e) => {
+        if (e.detail === "mapa")
+          setTimeout(() => {
+            map.invalidateSize();
+            loadQuakes();
+          }, 60);
+      });
+
+      // If the Mapa tab is already the active one on load, load immediately.
+      if (mapEl.closest(".tab-panel")?.classList.contains("active")) loadQuakes();
+    }
+    if (document.readyState === "loading")
+      document.addEventListener("DOMContentLoaded", start);
+    else start();
+  })();
+</script>
+
+<style>
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: var(--text);
+  }
+  /* Legend items are toggle buttons that filter the map by type. */
+  .lg {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font: inherit;
+    font-size: 13px;
+    color: var(--text);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: opacity 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .lg:hover { border-color: #cfd5e0; }
+  .lg .lg-n { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+  .lg[aria-pressed="false"] { opacity: 0.45; background: var(--paper); text-decoration: line-through; }
+  .lg-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .lg-dot.center { background: #2563eb; }
+  .lg-dot.prof { background: #dc2626; }
+  .lg-dot.quake { background: #eab308; }
+  .quake-src { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-left: auto; }
+  .map-reset {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 12px;
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: var(--ink);
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .map-reset:hover { background: var(--ink-soft); }
+  .map-reset.ghost { background: var(--card); color: var(--ink); border-color: var(--line); }
+  .map-reset.ghost:hover { border-color: var(--ink); background: var(--paper); }
+  .map-reset:disabled { opacity: 0.5; cursor: default; }
+
+  /* Two-column layout: map left, scrollable list right, equal height. */
+  .map-layout {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 16px;
+    height: clamp(460px, 68vh, 740px);
+  }
+  .map-pane {
+    height: 100%;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 8px 28px rgba(20, 33, 61, 0.08);
+    background: #e8edf2;
+  }
+  .list-pane {
+    height: 100%;
+    overflow-y: auto;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--card);
+    padding: 14px 16px;
+  }
+  .list-filters {
+    position: sticky;
+    top: -14px;
+    z-index: 2;
+    display: flex;
+    gap: 8px;
+    margin: -14px -16px 12px;
+    padding: 12px 16px;
+    background: var(--card);
+    border-bottom: 1px solid var(--line);
+  }
+  .list-filters select {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-body);
+    font-size: 12.5px;
+    padding: 7px 9px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    color: var(--text);
+  }
+  .list-filters select:focus { outline: none; border-color: var(--gold); }
+
+  .quake-error { font-size: 13px; color: var(--urgent); margin: 0 0 12px; }
+  .list-empty { font-size: 13px; color: var(--muted); text-align: center; padding: 24px 8px; }
+
+  .country-block { margin-bottom: 6px; }
+  .country-block:first-child { margin-top: 0; }
+  .country-name {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin: 14px 0 12px;
+    padding-bottom: 7px;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  .state-block { margin: 0 0 16px; }
+  .state-name {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .count { font-family: var(--font-mono); font-size: 11px; background: var(--ink); color: #fff; border-radius: 10px; padding: 1px 8px; }
+
+  .point-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+  .point {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    text-align: left;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 11px 14px;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+    font: inherit;
+  }
+  .point:hover { box-shadow: 0 4px 14px rgba(20, 33, 61, 0.08); transform: translateY(-1px); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .point.center .dot { background: #2563eb; }
+  .point.professional .dot { background: #dc2626; }
+  .point-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+  .point-text strong { font-size: 13.5px; color: var(--ink); font-weight: 600; }
+  .point-detail { font-size: 12px; color: var(--muted); }
+  .badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    padding: 2px 8px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  /* Marker + popup styling (global so Leaflet's injected DOM is reachable). */
+  :global(.mk) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  }
+  :global(.mk svg) { width: 64%; height: 64%; }
+  :global(.pop-title) { font-family: var(--font-display); font-size: 14px; color: var(--ink); }
+  :global(.pop-org) { font-size: 12px; color: var(--gold-deep); font-weight: 600; margin-top: 2px; }
+  :global(.pop-detail) { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  :global(.pop-needs) { font-size: 12px; color: var(--text); margin-top: 6px; line-height: 1.4; }
+  :global(.pop-phone) { margin-top: 6px; font-family: var(--font-mono); font-size: 12px; }
+  :global(.pop-people) { margin-top: 8px; font-size: 12px; border-top: 1px solid #eee; padding-top: 6px; }
+  :global(.pop-people b) { color: var(--ink); display: block; margin-bottom: 4px; }
+  :global(.pop-person) { display: flex; justify-content: space-between; gap: 12px; padding: 1px 0; }
+
+  /* Stack the map and list on narrow screens. */
+  @media (max-width: 760px) {
+    .map-layout { grid-template-columns: 1fr; height: auto; }
+    .map-pane { height: 380px; }
+    .list-pane { height: auto; max-height: 420px; }
+  }
+  :global(.pop-person span) { color: var(--text); }
+  :global(.pop-person a) { font-family: var(--font-mono); white-space: nowrap; }
+</style>

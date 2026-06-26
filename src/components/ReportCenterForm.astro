@@ -1,0 +1,253 @@
+---
+// AID-11: report form. A "Tipo de reporte" selector switches between three
+// purposes — needing help, reporting a center, or a professional announcing
+// themselves — and the relevant fields show/hide accordingly. Posts a Discord
+// embed straight from the browser (no backend). The script targets every
+// `.report-form` so multiple instances work.
+---
+
+<form class="report-form" novalidate>
+  <p class="rf-disclaimer">
+    Los datos se envían a los moderadores vía Discord para verificación — no
+    garantizamos su publicación inmediata. <strong>Toda la información será
+    pública;</strong> no incluyas datos personales que no quieras compartir.
+  </p>
+
+  <div class="rf-grid">
+    <label class="rf-field rf-wide">
+      <span>Tipo de reporte *</span>
+      <select name="kind" required>
+        <option value="centro">Reportar un centro de acopio</option>
+        <option value="ayuda">Necesito ayuda</option>
+        <option value="profesional">Soy profesional / ofrezco ayuda</option>
+      </select>
+    </label>
+
+    <label class="rf-field" data-kinds="ayuda profesional" hidden>
+      <span>Nombre *</span>
+      <input name="name" data-req placeholder="Ej: Ana Pérez" />
+    </label>
+    <label class="rf-field rf-twocol" data-kinds="profesional" hidden>
+      <span>Profesión / especialidad *</span>
+      <input name="specialty" data-req placeholder="Ej: Médico, Psicólogo, Logística" />
+    </label>
+
+    <label class="rf-field">
+      <span>País *</span>
+      <input name="country" value="Venezuela" required />
+    </label>
+    <label class="rf-field">
+      <span>Estado *</span>
+      <input name="state" required placeholder="Ej: Táchira" />
+    </label>
+    <label class="rf-field">
+      <span>Ciudad</span>
+      <input name="city" placeholder="Opcional" />
+    </label>
+
+    <label class="rf-field rf-wide">
+      <span>Dirección o zona *</span>
+      <input name="location" required placeholder="Ej: Av. Principal, frente a la plaza" />
+    </label>
+
+    <label class="rf-field rf-wide" data-kinds="centro ayuda">
+      <span>¿Qué se necesita? *</span>
+      <textarea name="needs" data-req rows="2" placeholder="Ej: Agua, alimentos no perecederos, medicinas"></textarea>
+    </label>
+
+    <label class="rf-field rf-wide">
+      <span>Contacto</span>
+      <input name="contact" placeholder="Opcional — teléfono o redes" />
+    </label>
+    <label class="rf-field rf-wide">
+      <span>Notas</span>
+      <textarea name="notes" rows="2" placeholder="Opcional — horarios, referencias, servicios que ofreces…"></textarea>
+    </label>
+
+    <label class="rf-check" data-kinds="centro ayuda">
+      <input type="checkbox" name="urgent" />
+      <span>Es urgente</span>
+    </label>
+  </div>
+
+  <div class="rf-actions">
+    <button type="submit" class="rf-submit">Enviar reporte</button>
+    <span class="rf-status" role="status" aria-live="polite"></span>
+  </div>
+</form>
+
+<script>
+  const WEBHOOK =
+    "https://discord.com/api/webhooks/1520112883575296111/7E0d6uELwHoFcHXkPu-9JrY6nrC6wpW898JHEwiVyDaq8R9k_TUb4zgQaqnu2buS2C3z";
+
+  const KIND_TITLE: Record<string, string> = {
+    centro: "Nuevo centro de acopio",
+    ayuda: "Solicitud de ayuda",
+    profesional: "Profesional disponible",
+  };
+  const KIND_LABEL: Record<string, string> = {
+    centro: "Reportar un centro de acopio",
+    ayuda: "Necesito ayuda",
+    profesional: "Soy profesional / ofrezco ayuda",
+  };
+
+  document.querySelectorAll<HTMLFormElement>(".report-form").forEach((form) => {
+    const statusEl = form.querySelector<HTMLElement>(".rf-status")!;
+    const submit = form.querySelector<HTMLButtonElement>(".rf-submit")!;
+    const kindSel = form.querySelector<HTMLSelectElement>('[name="kind"]')!;
+    const conditional = [...form.querySelectorAll<HTMLElement>("[data-kinds]")];
+
+    // Show/hide fields for the chosen report type and toggle `required` so that
+    // hidden fields never block submission.
+    function applyKind() {
+      const k = kindSel.value;
+      conditional.forEach((el) => {
+        const show = (el.dataset.kinds || "").split(" ").includes(k);
+        el.hidden = !show;
+        el.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
+          "[data-req]",
+        ).forEach((f) => (f.required = show));
+      });
+    }
+    kindSel.addEventListener("change", applyKind);
+    applyKind();
+
+    function setStatus(kind: "" | "sending" | "ok" | "error", msg: string) {
+      statusEl.textContent = msg;
+      statusEl.dataset.kind = kind;
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!form.reportValidity()) return;
+
+      const fd = new FormData(form);
+      const val = (k: string) => (fd.get(k) || "").toString().trim();
+      const kind = val("kind");
+      const isPro = kind === "profesional";
+      const urgent = (form.querySelector('[name="urgent"]') as HTMLInputElement)
+        .checked;
+
+      const embed = {
+        title: KIND_TITLE[kind] || "Reporte",
+        color: urgent ? 0xff2222 : isPro ? 0x2f7d32 : 0x00bcd4,
+        timestamp: new Date().toISOString(),
+        fields: [
+          { name: "Tipo", value: KIND_LABEL[kind] || kind, inline: true },
+          ...(isPro
+            ? [
+                { name: "Nombre", value: val("name") || "-", inline: true },
+                { name: "Profesión", value: val("specialty") || "-", inline: true },
+              ]
+            : []),
+          { name: "País", value: val("country") || "-", inline: true },
+          { name: "Estado", value: val("state") || "-", inline: true },
+          { name: "Ciudad", value: val("city") || "-", inline: true },
+          { name: "Dirección/Zona", value: val("location") || "-" },
+          ...(isPro
+            ? []
+            : [
+                { name: "Necesidades", value: val("needs") || "-" },
+                { name: "Urgente", value: urgent ? "Sí" : "No", inline: true },
+              ]),
+          ...(val("contact") ? [{ name: "Contacto", value: val("contact") }] : []),
+          ...(val("notes") ? [{ name: "Notas", value: val("notes") }] : []),
+        ],
+      };
+
+      submit.disabled = true;
+      setStatus("sending", "Enviando…");
+      try {
+        const res = await fetch(WEBHOOK, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ embeds: [embed] }),
+        });
+        if (!res.ok) throw new Error(String(res.status));
+        setStatus("ok", "¡Enviado! Gracias por reportar.");
+        form.reset();
+        applyKind();
+      } catch {
+        setStatus("error", "No se pudo enviar. Intenta de nuevo.");
+      } finally {
+        submit.disabled = false;
+      }
+    });
+  });
+</script>
+
+<style>
+  .report-form {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px;
+    max-width: 720px;
+  }
+  .rf-disclaimer { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin: 0 0 16px; }
+  .rf-disclaimer strong { color: var(--text); }
+
+  .rf-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .rf-field { display: flex; flex-direction: column; gap: 4px; }
+  /* `display: flex/grid` on these overrides the [hidden] attribute, so the
+     conditional fields would stay visible — re-assert display:none explicitly. */
+  .rf-field[hidden],
+  .rf-check[hidden] { display: none; }
+  .rf-wide { grid-column: 1 / -1; }
+  .rf-twocol { grid-column: span 2; }
+  .rf-field span {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .rf-field input,
+  .rf-field select,
+  .rf-field textarea {
+    font-family: var(--font-body);
+    font-size: 13.5px;
+    padding: 9px 11px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    color: var(--text);
+    resize: vertical;
+  }
+  .rf-field input:focus,
+  .rf-field select:focus,
+  .rf-field textarea:focus { outline: none; border-color: var(--gold); }
+
+  .rf-check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--text); }
+  .rf-check input { width: 16px; height: 16px; accent-color: var(--urgent); }
+
+  .rf-actions { display: flex; align-items: center; gap: 14px; margin-top: 16px; }
+  .rf-submit {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 14px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 8px;
+    background: var(--gold);
+    color: var(--ink);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .rf-submit:hover:not(:disabled) { background: var(--gold-deep); color: #fff; }
+  .rf-submit:disabled { opacity: 0.55; cursor: default; }
+
+  .rf-status { font-size: 13px; font-weight: 600; }
+  .rf-status[data-kind="ok"] { color: #2f7d32; }
+  .rf-status[data-kind="error"] { color: var(--urgent); }
+  .rf-status[data-kind="sending"] { color: var(--muted); }
+
+  @media (max-width: 560px) {
+    .rf-grid { grid-template-columns: 1fr 1fr; }
+    .rf-twocol { grid-column: 1 / -1; }
+  }
+</style>

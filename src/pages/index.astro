@@ -1,0 +1,43 @@
+---
+import fs from "node:fs";
+import path from "node:path";
+import type { ImageEntry } from "../types";
+import Layout from "../layouts/Layout.astro";
+import DashboardTab from "../components/DashboardTab.astro";
+import AcopiosTab from "../components/AcopiosTab.astro";
+import PersonalTab from "../components/PersonalTab.astro";
+import MapaTab from "../components/MapaTab.astro";
+import ServiciosTab from "../components/ServiciosTab.astro";
+import CanalesTab from "../components/CanalesTab.astro";
+import ReportaTab from "../components/ReportaTab.astro";
+import { expandCenters } from "../lib/centers";
+
+const dbPath = path.resolve("public/images.json");
+const raw = JSON.parse(fs.readFileSync(dbPath, "utf-8"));
+const entries: ImageEntry[] = raw.entries;
+// Multi-state compilations (e.g. the nationwide flyer) are split so each point
+// lands under its real state in the list.
+const centers = expandCenters(entries.filter((e) => e.category === "center"));
+const professionals = entries.filter((e) => e.category === "professional");
+
+// The Personal tab flattens each `people[]` table into individual listings,
+// so the rail count reflects people, not posts.
+const personalCount = professionals.reduce(
+  (n, e) => n + (e.people?.length || 1),
+  0,
+);
+---
+
+<Layout acopiosCount={centers.length} personalCount={personalCount}>
+  <DashboardTab
+    entries={entries}
+    acopiosCount={centers.length}
+    personalCount={personalCount}
+  />
+  <AcopiosTab centers={centers} />
+  <PersonalTab professionals={professionals} />
+  <MapaTab entries={entries} />
+  <ServiciosTab />
+  <CanalesTab />
+  <ReportaTab />
+</Layout>

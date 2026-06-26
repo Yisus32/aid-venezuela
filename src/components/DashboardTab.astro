@@ -1,0 +1,270 @@
+---
+import type { ImageEntry } from "../types";
+import { expandCenters } from "../lib/centers";
+
+interface Props {
+  entries: ImageEntry[];
+  acopiosCount: number;
+  personalCount: number;
+}
+
+const { entries, acopiosCount, personalCount } = Astro.props;
+
+// Use the same expansion as the Acopios section so the stats match what's shown.
+const centers = expandCenters(entries.filter((e) => e.category === "center"));
+const urgent = centers.filter((e) => e.urgency === "high");
+const states = [
+  ...new Set(centers.map((e) => e.location.state).filter(Boolean)),
+];
+const countries = [
+  ...new Set(centers.map((e) => e.location.country).filter(Boolean)),
+];
+const specialties = [
+  ...new Set(
+    entries
+      .filter((e) => e.category === "professional")
+      .map((e) => e.specialty)
+      .filter(Boolean),
+  ),
+] as string[];
+const mapPoints = entries.filter((e) => e.coords).length;
+
+const ORG_FALLBACK = "Centros de Acopio Sociedad Civil";
+const topUrgent = urgent
+  .slice(0, 4)
+  .map((e) => ({
+    org: e.organization || ORG_FALLBACK,
+    city: e.location.city || e.location.state || "",
+  }));
+
+const stats = [
+  { value: acopiosCount, label: "Centros de acopio" },
+  { value: personalCount, label: "Profesionales" },
+  { value: states.length, label: "Estados" },
+  { value: countries.length, label: "Países" },
+];
+---
+
+<section id="tab-inicio" class="tab-panel active">
+  <header class="panel-head">
+    <p class="panel-eyebrow">Panel general</p>
+    <h2 class="panel-title">Toda la respuesta, de un vistazo</h2>
+    <p class="panel-intro">
+      Resumen de centros de acopio, ayuda profesional, mapa y servicios para la
+      emergencia del terremoto en Venezuela. Toca una tarjeta para ir a su
+      sección.
+    </p>
+  </header>
+
+  <div class="stats">
+    {
+      stats.map((s) => (
+        <div class="stat">
+          <span class="stat-value">{s.value}</span>
+          <span class="stat-label">{s.label}</span>
+        </div>
+      ))
+    }
+  </div>
+
+  <div class="cards">
+    <button type="button" class="card span-2 c-acopios" data-goto="acopios">
+      <div class="card-top">
+        <span class="card-eyebrow">Acopios</span>
+        <span class="card-go" aria-hidden="true">↗</span>
+      </div>
+      <h3 class="card-title">{acopiosCount} centros de acopio</h3>
+      <p class="card-sub">
+        {urgent.length} urgentes · {states.length} estados · {countries.length} países
+      </p>
+      {
+        topUrgent.length > 0 && (
+          <ul class="mini">
+            {topUrgent.map((u) => (
+              <li>
+                <span class="dot urgent" /> {u.org}
+                {u.city && <span class="mini-city"> · {u.city}</span>}
+              </li>
+            ))}
+          </ul>
+        )
+      }
+      <span class="card-cta">Ver centros de acopio →</span>
+    </button>
+
+    <button type="button" class="card c-personal" data-goto="personal">
+      <div class="card-top">
+        <span class="card-eyebrow">Personal</span>
+        <span class="card-go" aria-hidden="true">↗</span>
+      </div>
+      <h3 class="card-title">{personalCount} profesionales</h3>
+      <p class="card-sub">{specialties.join(" · ") || "Ayuda voluntaria"}</p>
+      <span class="card-cta">Ver ayuda profesional →</span>
+    </button>
+
+    <button type="button" class="card c-mapa" data-goto="mapa">
+      <div class="card-top">
+        <span class="card-eyebrow">Mapa</span>
+        <span class="card-go" aria-hidden="true">↗</span>
+      </div>
+      <h3 class="card-title">{mapPoints}+ puntos en el mapa</h3>
+      <p class="card-sub">
+        Acopios, personal y <strong>sismos en vivo</strong> (USGS), centrados en
+        Venezuela.
+      </p>
+      <span class="card-cta">Abrir el mapa →</span>
+    </button>
+
+    <button type="button" class="card c-servicios" data-goto="servicios">
+      <div class="card-top">
+        <span class="card-eyebrow">Servicios</span>
+        <span class="card-go" aria-hidden="true">↗</span>
+      </div>
+      <h3 class="card-title">Personas desaparecidas</h3>
+      <p class="card-sub">
+        Plataformas para buscar, reportar y localizar personas.
+      </p>
+      <span class="card-cta">Ver servicios →</span>
+    </button>
+
+    <button type="button" class="card c-canales" data-goto="canales">
+      <div class="card-top">
+        <span class="card-eyebrow">Canales</span>
+        <span class="card-go" aria-hidden="true">↗</span>
+      </div>
+      <h3 class="card-title">Cobertura en vivo</h3>
+      <p class="card-sub">Publicaciones y lives en X y TikTok.</p>
+      <span class="card-cta">Ver canales →</span>
+    </button>
+
+    <button type="button" class="card c-reporta" data-goto="reporta">
+      <div class="card-top">
+        <span class="card-eyebrow">Reporta</span>
+        <span class="card-go" aria-hidden="true">↗</span>
+      </div>
+      <h3 class="card-title">Reporta o pide ayuda</h3>
+      <p class="card-sub">Necesito ayuda · reportar un centro · soy profesional.</p>
+      <span class="card-cta">Abrir formulario →</span>
+    </button>
+  </div>
+</section>
+
+<style>
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ---- Stats strip ---- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 22px;
+    max-width: 900px;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .stat-value {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 28px;
+    line-height: 1;
+    color: var(--ink);
+  }
+  .stat-label {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ---- Cards ---- */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    max-width: 900px;
+  }
+  .span-2 { grid-column: 1 / -1; }
+
+  .card {
+    text-align: left;
+    font: inherit;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+    border-top: 3px solid var(--gold);
+    transition: box-shadow 0.18s, transform 0.18s, border-color 0.18s;
+  }
+  .card:hover {
+    box-shadow: 0 10px 28px rgba(20, 33, 61, 0.1);
+    transform: translateY(-2px);
+  }
+  .c-acopios { border-top-color: #2563eb; }
+  .c-personal { border-top-color: #dc2626; }
+  .c-mapa { border-top-color: #eab308; }
+  .c-servicios { border-top-color: var(--gold-deep); }
+  .c-canales { border-top-color: var(--ink); }
+  .c-reporta { border-top-color: #2f7d32; }
+
+  .card-top { display: flex; align-items: center; justify-content: space-between; }
+  .card-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .card-go { font-family: var(--font-mono); color: var(--muted); transition: color 0.18s; }
+  .card:hover .card-go { color: var(--gold-deep); }
+
+  .card-title {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin: 0;
+  }
+  .card-sub { font-size: 13.5px; color: var(--muted); margin: 0; line-height: 1.45; }
+  .card-sub strong { color: var(--text); }
+
+  .mini {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 16px;
+  }
+  .mini li { font-size: 12.5px; color: var(--text); display: flex; align-items: center; gap: 7px; }
+  .mini-city { color: var(--muted); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .dot.urgent { background: var(--urgent); }
+
+  .card-cta {
+    margin-top: 4px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--gold-deep);
+  }
+
+  @media (max-width: 640px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .cards { grid-template-columns: 1fr; }
+  }
+</style>

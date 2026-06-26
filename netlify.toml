@@ -1,0 +1,9 @@
+# Netlify deployment config.
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+# The dashboard's "Cifras oficiales" cards call /.netlify/functions/figures.
+# Without this function deployed, they fall back to the static
+# public/data/figures.json (updated at build time).

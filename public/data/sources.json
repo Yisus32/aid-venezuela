@@ -1,0 +1,89 @@
+{
+  "nota": "Fuentes oficiales del Estado venezolano y cadenas de noticias oficiales. El campo 'confiabilidad' indica el rol respecto a las cifras oficiales: 'alta' = organismo del Estado que EMITE cifras oficiales (fuente primaria); 'media' = medio estatal/oficial que las DIFUNDE (fuente secundaria). No es un juicio político, sino una indicación de cercanía a la fuente primaria. Verifique siempre en el organismo emisor. 'accesible' refleja si el sitio respondió al momento de la última verificación; varios dominios .gob.ve son intermitentes.",
+  "verificadoEl": "2025-06-26",
+  "fuentes": [
+    {
+      "nombre": "Protección Civil (Venezuela)",
+      "tipo": "gobierno",
+      "rol": "primaria",
+      "tema": "emergencias y cifras de víctimas",
+      "url": "https://www.proteccioncivil.gob.ve",
+      "confiabilidad": "alta",
+      "accesible": false,
+      "notas": "Organismo emisor de cifras oficiales de emergencia. Dominio intermitente."
+    },
+    {
+      "nombre": "FUNVISIS",
+      "tipo": "gobierno",
+      "rol": "primaria",
+      "tema": "sismología y eventos sísmicos",
+      "url": "http://www.funvisis.gob.ve",
+      "confiabilidad": "alta",
+      "accesible": true
+    },
+    {
+      "nombre": "INAMEH",
+      "tipo": "gobierno",
+      "rol": "primaria",
+      "tema": "meteorología e hidrología",
+      "url": "http://www.inameh.gob.ve",
+      "confiabilidad": "alta",
+      "accesible": true
+    },
+    {
+      "nombre": "Ministerio del Poder Popular para Relaciones Exteriores (MPPRE)",
+      "tipo": "gobierno",
+      "rol": "primaria",
+      "tema": "comunicados oficiales del Estado",
+      "url": "https://mppre.gob.ve",
+      "confiabilidad": "alta",
+      "accesible": true
+    },
+    {
+      "nombre": "Venezolana de Televisión (VTV)",
+      "tipo": "medio-estatal",
+      "rol": "secundaria",
+      "tema": "cadena de noticias oficial",
+      "url": "https://www.vtv.gob.ve",
+      "confiabilidad": "media",
+      "accesible": false,
+      "notas": "Difunde cifras oficiales; no es la fuente emisora."
+    },
+    {
+      "nombre": "teleSUR",
+      "tipo": "medio-estatal",
+      "rol": "secundaria",
+      "tema": "cadena de noticias oficial",
+      "url": "https://www.telesurtv.net",
+      "confiabilidad": "media",
+      "accesible": true
+    },
+    {
+      "nombre": "Correo del Orinoco",
+      "tipo": "medio-estatal",
+      "rol": "secundaria",
+      "tema": "diario oficial del Estado",
+      "url": "https://www.correodelorinoco.gob.ve",
+      "confiabilidad": "media",
+      "accesible": false
+    },
+    {
+      "nombre": "Últimas Noticias",
+      "tipo": "medio",
+      "rol": "secundaria",
+      "tema": "diario de amplia circulación",
+      "url": "https://ultimasnoticias.com.ve",
+      "confiabilidad": "media",
+      "accesible": true
+    },
+    {
+      "nombre": "Alba Ciudad",
+      "tipo": "medio-estatal",
+      "rol": "secundaria",
+      "tema": "radio/medio comunitario del Estado",
+      "url": "https://albaciudad.org",
+      "confiabilidad": "media",
+      "accesible": true
+    }
+  ]
+}

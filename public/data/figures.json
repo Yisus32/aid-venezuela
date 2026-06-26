@@ -1,0 +1,13 @@
+{
+  "updatedAt": null,
+  "source": {
+    "name": "Protección Civil (Venezuela)",
+    "url": "https://www.proteccioncivil.gob.ve"
+  },
+  "figures": {
+    "fallecidos": null,
+    "rescatados": null,
+    "desaparecidos": null
+  },
+  "note": "Cifras oficiales. Mientras no haya datos confirmados por la fuente oficial, se muestran como «—». No se publican estimaciones no oficiales."
+}

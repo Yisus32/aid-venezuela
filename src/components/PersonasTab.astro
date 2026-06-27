@@ -1,0 +1,430 @@
+---
+// Directorio de personas (desaparecidas / encontradas) de SOS Venezuela 2026.
+// Solo lectura: se consume vía nuestro proxy (/api/sos/*), con búsqueda por
+// nombre y paginación server-side; el filtro por estado es sobre la página
+// cargada. No se desenmascara nada. Carga perezosa al abrir la pestaña.
+---
+
+<section id="tab-personas" class="tab-panel">
+  <header class="panel-head">
+    <p class="panel-eyebrow">Búsqueda de personas</p>
+    <h2 class="panel-title">Personas desaparecidas y encontradas</h2>
+    <p class="panel-intro">
+      Directorio de personas reportadas tras el sismo. Busca por nombre; cada
+      ficha indica si la persona sigue en búsqueda o ya fue encontrada con vida.
+    </p>
+  </header>
+
+  <div class="pers-stats" id="pers-stats" aria-live="polite">
+    <div class="pstat s-missing"><span class="pstat-n" id="ps-missing">—</span><span class="pstat-l">En búsqueda</span></div>
+    <div class="pstat s-found"><span class="pstat-n" id="ps-found">—</span><span class="pstat-l">Encontradas con vida</span></div>
+    <div class="pstat s-total"><span class="pstat-n" id="ps-total">—</span><span class="pstat-l">Total reportadas</span></div>
+  </div>
+
+  <div class="pers-report">
+    <span class="pr-text">¿Buscas o tienes información de alguien?</span>
+    <a class="pr-btn primary" href="https://sosvenezuela2026.com" target="_blank" rel="noopener noreferrer">Reportar en SOS Venezuela 2026 ↗</a>
+    <button type="button" class="pr-btn" data-goto="reporta">Ir a Reporta</button>
+  </div>
+
+  <div class="pers-controls">
+    <div class="pers-searchbar">
+      <input
+        type="search"
+        id="pers-q"
+        class="pers-search"
+        placeholder="Buscar por nombre…"
+        autocomplete="off"
+        aria-label="Buscar persona por nombre"
+      />
+      <button type="button" id="pers-search-btn" class="pers-search-go">Buscar</button>
+    </div>
+    <div class="pers-filter" role="group" aria-label="Filtrar por estado">
+      <button type="button" class="pf-btn active" data-status="">Todos</button>
+      <button type="button" class="pf-btn" data-status="seeking_info">Desaparecidos</button>
+      <button type="button" class="pf-btn" data-status="found_alive">Encontrados</button>
+    </div>
+  </div>
+
+  <p class="pers-note" id="pers-note">Cargando directorio…</p>
+  <div class="pers-grid" id="pers-grid"></div>
+
+  <nav class="pers-pager" id="pers-pager" hidden aria-label="Paginación">
+    <button type="button" id="pers-prev" class="pg-btn pg-arrow" aria-label="Página anterior">‹</button>
+    <div class="pg-nums" id="pers-nums"></div>
+    <button type="button" id="pers-next" class="pg-btn pg-arrow" aria-label="Página siguiente">›</button>
+  </nav>
+
+  <p class="pers-attrib">Datos: <a href="https://sosvenezuela2026.com" target="_blank" rel="noopener noreferrer">SOS Venezuela 2026</a>. Información sensible: verifica siempre con la fuente oficial.</p>
+</section>
+
+<script>
+  (function () {
+    const PER_PAGE = 30;
+    let offset = 0;
+    let q = "";
+    let statusFilter = "";
+    let lastCount = 0;
+    let loaded = false;
+    let reqId = 0;
+    let statsTotal: number | null = null; // total del directorio (para "última" página)
+
+    const esc = (s: any) =>
+      String(s == null ? "" : s).replace(/[&<>"]/g, (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!,
+      );
+    const fmtInt = (n: number) => n.toLocaleString("es-VE");
+
+    const STATUS: Record<string, { label: string; cls: string }> = {
+      seeking_info: { label: "Desaparecido", cls: "st-missing" },
+      found_alive: { label: "Encontrado", cls: "st-found" },
+    };
+
+    function initials(name: string) {
+      return (name || "?")
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase() || "")
+        .join("");
+    }
+
+    async function loadStats() {
+      try {
+        const r = await fetch("/api/sos/persons-stats", { cache: "no-store" });
+        if (!r.ok) return;
+        const d = await r.json();
+        const set = (id: string, v: any) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = Number.isFinite(v) ? fmtInt(v) : "—";
+        };
+        set("ps-missing", d.missing);
+        set("ps-found", d.found);
+        set("ps-total", d.total);
+        if (Number.isFinite(d.total)) {
+          statsTotal = d.total;
+          renderPager(lastCount); // ya conocemos el total → numera con "última"
+        }
+      } catch {
+        /* silencioso: las cifras quedan en — */
+      }
+    }
+
+    function cardHtml(p: any) {
+      const st = STATUS[p.status] || { label: p.status || "—", cls: "st-other" };
+      const place = [p.parroquia, p.municipio].filter(Boolean).join(" · ");
+      const photo = typeof p.photo_path === "string" && /^https?:\/\//.test(p.photo_path) ? p.photo_path : "";
+      // La imagen se superpone a las iniciales; si falla (muchas URLs vienen
+      // rotas), onerror la elimina y quedan las iniciales como respaldo.
+      const img = photo
+        ? `<img class="pc-photo" src="${esc(photo)}" alt="Foto de ${esc(p.display_name || "")}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()" />`
+        : "";
+      const date = p.source_date ? new Date(p.source_date).toLocaleDateString("es-VE", { day: "2-digit", month: "short" }) : "";
+      return (
+        `<article class="pcard" data-status="${esc(p.status || "")}">` +
+        `<div class="pc-media ${st.cls}">` +
+        `<span class="pc-initials">${esc(initials(p.display_name))}</span>` +
+        img +
+        `<span class="pc-badge ${st.cls}">${esc(st.label)}</span>` +
+        `</div>` +
+        `<div class="pc-body">` +
+        `<h3 class="pc-name">${esc(p.display_name || "Sin nombre")}</h3>` +
+        (place ? `<p class="pc-meta pc-place">📍 ${esc(place)}</p>` : "") +
+        (p.hospital_name ? `<p class="pc-meta pc-hospital">🏥 ${esc(p.hospital_name)}</p>` : "") +
+        `<div class="pc-foot">` +
+        (p.cedula_masked ? `<span class="pc-cedula">${esc(p.cedula_masked)}</span>` : "<span></span>") +
+        (date ? `<span class="pc-date">${esc(date)}</span>` : "") +
+        `</div>` +
+        `</div></article>`
+      );
+    }
+
+    function applyStatusFilter() {
+      const grid = document.getElementById("pers-grid");
+      if (!grid) return;
+      let shown = 0;
+      grid.querySelectorAll<HTMLElement>(".pcard").forEach((c) => {
+        const show = !statusFilter || c.dataset.status === statusFilter;
+        c.hidden = !show;
+        if (show) shown++;
+      });
+      return shown;
+    }
+
+    async function load() {
+      const grid = document.getElementById("pers-grid");
+      const note = document.getElementById("pers-note");
+      const pager = document.getElementById("pers-pager");
+      if (!grid || !note) return;
+      const mine = ++reqId;
+      note.textContent = "Cargando…";
+      const u = new URL("/api/sos/persons", location.origin);
+      if (q) u.searchParams.set("q", q);
+      u.searchParams.set("limit", String(PER_PAGE));
+      u.searchParams.set("offset", String(offset));
+      let items: any[] = [];
+      try {
+        const r = await fetch(u, { cache: "no-store" });
+        if (r.ok) {
+          const d = await r.json();
+          items = Array.isArray(d.items) ? d.items : [];
+        }
+      } catch {
+        /* red caída */
+      }
+      if (mine !== reqId) return; // llegó una respuesta más nueva
+      lastCount = items.length;
+      grid.innerHTML = items.map(cardHtml).join("");
+      const shown = applyStatusFilter();
+
+      if (!items.length) {
+        note.textContent = q
+          ? `Sin resultados para «${q}».`
+          : "No se pudo cargar el directorio. Intenta de nuevo más tarde.";
+      } else if (statusFilter && shown === 0) {
+        note.textContent = "Ningún resultado de esta página coincide con el filtro. Prueba «Siguientes».";
+      } else {
+        note.textContent = "";
+      }
+
+      renderPager(items.length);
+    }
+
+    // Tokens de paginación: números (1-based) y "…". Con total conocido muestra
+    // 1 … actual … última; sin total (búsqueda) muestra una ventana sin "última".
+    function pageTokens(cur: number, total: number | null, hasNext: boolean) {
+      const toks: (number | string)[] = [];
+      if (total) {
+        const set = new Set<number>([1, total, cur - 1, cur, cur + 1]);
+        const sorted = [...set].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
+        let prev = 0;
+        for (const p of sorted) {
+          if (p - prev > 1) toks.push("…");
+          toks.push(p);
+          prev = p;
+        }
+      } else {
+        const start = Math.max(1, cur - 1);
+        if (start > 1) { toks.push(1); if (start > 2) toks.push("…"); }
+        for (let p = start; p <= cur; p++) toks.push(p);
+        if (hasNext) toks.push(cur + 1);
+      }
+      return toks;
+    }
+
+    function renderPager(itemsLen: number) {
+      const pager = document.getElementById("pers-pager");
+      const nums = document.getElementById("pers-nums");
+      if (!pager || !nums) return;
+      const cur = Math.floor(offset / PER_PAGE) + 1; // 1-based
+      const hasNext = lastCount >= PER_PAGE;
+      // El total solo se conoce para el directorio completo (sin búsqueda).
+      const total = !q && statsTotal ? Math.max(1, Math.ceil(statsTotal / PER_PAGE)) : null;
+
+      (document.getElementById("pers-prev") as HTMLButtonElement).disabled = cur <= 1;
+      (document.getElementById("pers-next") as HTMLButtonElement).disabled = !hasNext;
+
+      nums.innerHTML = pageTokens(cur, total, hasNext)
+        .map((tk) =>
+          tk === "…"
+            ? '<span class="pg-ellipsis">…</span>'
+            : `<button type="button" class="pg-num${tk === cur ? " active" : ""}" data-page="${(tk as number) - 1}">${tk}</button>`,
+        )
+        .join("");
+
+      pager.hidden = !((total && total > 1) || hasNext || cur > 1) || itemsLen === 0;
+    }
+
+    function goToPage(page0: number) {
+      offset = Math.max(0, page0) * PER_PAGE;
+      load();
+      document.querySelector(".content")?.scrollTo({ top: 0 });
+    }
+
+    // --- Eventos ---
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const qInput = document.getElementById("pers-q") as HTMLInputElement | null;
+    qInput?.addEventListener("input", (e) => {
+      q = (e.target as HTMLInputElement).value.trim();
+      clearTimeout(t);
+      t = setTimeout(() => {
+        offset = 0;
+        load();
+      }, 350);
+    });
+    function runSearch() {
+      clearTimeout(t);
+      q = (qInput?.value || "").trim();
+      offset = 0;
+      load();
+    }
+    document.getElementById("pers-search-btn")?.addEventListener("click", runSearch);
+    qInput?.addEventListener("keydown", (e) => {
+      if ((e as KeyboardEvent).key === "Enter") { e.preventDefault(); runSearch(); }
+    });
+
+    document.querySelectorAll<HTMLElement>(".pf-btn").forEach((b) =>
+      b.addEventListener("click", () => {
+        document.querySelectorAll(".pf-btn").forEach((x) => x.classList.toggle("active", x === b));
+        statusFilter = b.dataset.status || "";
+        const shown = applyStatusFilter();
+        const note = document.getElementById("pers-note");
+        if (note) {
+          if (statusFilter && shown === 0) note.textContent = "Ningún resultado de esta página coincide. Prueba «Siguientes».";
+          else if (lastCount) note.textContent = "";
+        }
+      }),
+    );
+
+    document.getElementById("pers-prev")?.addEventListener("click", () => goToPage(offset / PER_PAGE - 1));
+    document.getElementById("pers-next")?.addEventListener("click", () => goToPage(offset / PER_PAGE + 1));
+    document.getElementById("pers-nums")?.addEventListener("click", (ev) => {
+      const b = (ev.target as HTMLElement).closest(".pg-num") as HTMLElement | null;
+      if (b && b.dataset.page != null) goToPage(parseInt(b.dataset.page, 10));
+    });
+
+    function boot() {
+      if (loaded) return;
+      loaded = true;
+      loadStats();
+      load();
+    }
+
+    // Carga perezosa: al abrir la pestaña (o si se entró por deep-link #tab-personas).
+    document.addEventListener("tabchange", (e: any) => {
+      if (e.detail === "personas") boot();
+    });
+    if (document.getElementById("tab-personas")?.classList.contains("active")) boot();
+  })();
+</script>
+
+<style>
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .pers-stats { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+  .pstat {
+    flex: 1; min-width: 150px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px;
+    border-left: 4px solid var(--line);
+  }
+  .pstat.s-missing { border-left-color: var(--urgent); }
+  .pstat.s-found { border-left-color: #2f7d32; }
+  .pstat.s-total { border-left-color: var(--gold); }
+  .pstat-n { font-family: var(--font-display); font-weight: 800; font-size: 26px; color: var(--ink); line-height: 1.1; }
+  .pstat-l { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+
+  .pers-report {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px 16px; margin-bottom: 20px;
+  }
+  .pr-text { font-size: 14px; color: var(--ink); font-weight: 600; flex: 1; min-width: 200px; }
+  .pr-btn {
+    font-family: var(--font-display); font-weight: 700; font-size: 13px; cursor: pointer;
+    padding: 9px 14px; border-radius: 9px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); text-decoration: none;
+  }
+  .pr-btn:hover { border-color: var(--ink); }
+  .pr-btn.primary { background: var(--gold); border-color: var(--gold); }
+  .pr-btn.primary:hover { background: var(--gold-deep); color: #fff; }
+
+  .pers-controls { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+  .pers-searchbar { display: flex; gap: 10px; }
+  .pers-search {
+    flex: 1; min-width: 0; font-family: var(--font-body); font-size: 15px;
+    padding: 13px 16px; border: 1px solid var(--line); border-radius: 12px;
+    background: var(--card); color: var(--text);
+  }
+  .pers-search:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232,163,61,0.18); }
+  .pers-search-go {
+    flex-shrink: 0; font-family: var(--font-display); font-weight: 700; font-size: 14px;
+    padding: 0 24px; border-radius: 12px; border: 1px solid var(--gold);
+    background: var(--gold); color: var(--ink); cursor: pointer; transition: background 0.15s, color 0.15s;
+  }
+  .pers-search-go:hover { background: var(--gold-deep); border-color: var(--gold-deep); color: #fff; }
+
+  /* Píldoras de filtro (sueltas, redondeadas), como la referencia. */
+  .pers-filter { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pf-btn {
+    font-family: var(--font-display); font-weight: 700; font-size: 13px; cursor: pointer;
+    padding: 8px 16px; border: 1px solid var(--line); border-radius: 20px;
+    background: var(--card); color: var(--muted); transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .pf-btn:hover { border-color: var(--ink); color: var(--ink); }
+  .pf-btn.active { background: var(--ink); border-color: var(--ink); color: #fff; }
+
+  .pers-note { font-size: 14px; color: var(--muted); margin: 0 0 16px; }
+
+  .pers-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 16px; margin-bottom: 24px;
+  }
+  /* Las tarjetas se inyectan por JS (innerHTML), sin el atributo de scope de
+     Astro, así que SUS estilos deben ser :global() o no aplicarían. */
+  :global(.pcard) {
+    display: flex; flex-direction: column; background: var(--card);
+    border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  }
+  :global(.pcard:hover) { border-color: #d3d8e2; box-shadow: 0 6px 20px rgba(20, 33, 61, 0.1); transform: translateY(-2px); }
+  /* display:flex anula el [hidden] del navegador → el filtro no ocultaría nada
+     sin esta regla (mayor especificidad que .pcard). */
+  :global(.pcard[hidden]) { display: none !important; }
+
+  /* Imagen vertical (retrato) sobre navy; la inicial grande queda de respaldo
+     y la foto la cubre con object-fit: cover (sin deformarse). */
+  :global(.pc-media) {
+    position: relative; aspect-ratio: 3 / 4; width: 100%;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+    background: var(--ink);
+  }
+  :global(.pc-initials) {
+    font-family: var(--font-display); font-weight: 800; font-size: 54px;
+    color: rgba(255, 255, 255, 0.16); user-select: none; line-height: 1;
+  }
+  :global(.pc-photo) {
+    position: absolute; inset: 0; display: block;
+    width: 100%; height: 100%; object-fit: cover;
+  }
+
+  :global(.pc-badge) {
+    position: absolute; top: 10px; left: 10px; z-index: 1;
+    font-family: var(--font-display); font-size: 11px; font-weight: 700;
+    padding: 4px 11px; border-radius: 20px; color: #fff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  }
+  :global(.pc-badge.st-missing) { background: var(--urgent); }
+  :global(.pc-badge.st-found) { background: #2f7d32; }
+  :global(.pc-badge.st-other) { background: var(--ink-soft); }
+
+  :global(.pc-body) { display: flex; flex-direction: column; gap: 5px; padding: 13px 14px 14px; min-width: 0; flex: 1; }
+  :global(.pc-name) { font-family: var(--font-display); font-weight: 700; font-size: 15px; color: var(--ink); margin: 0; line-height: 1.25; word-break: break-word; }
+  :global(.pc-meta) { font-size: 12px; color: var(--muted); margin: 0; line-height: 1.35; word-break: break-word; }
+  :global(.pc-foot) { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 4px; }
+  :global(.pc-cedula) { font-family: var(--font-mono); font-size: 11px; color: var(--gold-deep); font-weight: 700; }
+  :global(.pc-date) { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); }
+
+  .pers-pager { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; margin-bottom: 24px; }
+  .pg-nums { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .pg-btn {
+    font-family: var(--font-display); font-weight: 700; font-size: 13px; cursor: pointer;
+    padding: 9px 14px; border-radius: 9px; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+  }
+  .pg-btn:hover:not(:disabled) { border-color: var(--ink); }
+  .pg-btn:disabled { opacity: 0.4; cursor: default; }
+  .pg-arrow { font-size: 16px; line-height: 1; padding: 8px 13px; }
+
+  /* Botones numerados (inyectados por JS → :global). */
+  :global(.pg-num) {
+    min-width: 38px; font-family: var(--font-display); font-weight: 700; font-size: 13px;
+    padding: 9px 11px; border-radius: 9px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  :global(.pg-num:hover) { border-color: var(--ink); }
+  :global(.pg-num.active) { background: var(--ink); border-color: var(--ink); color: #fff; cursor: default; }
+  :global(.pg-ellipsis) { font-family: var(--font-mono); font-size: 13px; color: var(--muted); padding: 0 4px; user-select: none; }
+
+  .pers-attrib { font-size: 12px; color: var(--muted); font-style: italic; margin: 0 0 8px; }
+</style>

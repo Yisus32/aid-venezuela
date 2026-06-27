@@ -94,7 +94,7 @@ const stats = [
 
     <button type="button" class="card c-personal" data-goto="personal">
       <div class="card-top">
-        <span class="card-eyebrow">Personal</span>
+        <span class="card-eyebrow">Voluntarios</span>
         <span class="card-go" aria-hidden="true">↗</span>
       </div>
       <h3 class="card-title">{personalCount} profesionales</h3>
@@ -137,9 +137,19 @@ const stats = [
       <span class="card-cta">Ver canales →</span>
     </button>
 
-    <button type="button" class="card c-ingresados" data-goto="ingresados">
+    <button type="button" class="card c-personas" data-goto="personas">
       <div class="card-top">
-        <span class="card-eyebrow">Ingresados</span>
+        <span class="card-eyebrow">Personas</span>
+        <span class="card-go" aria-hidden="true">↗</span>
+      </div>
+      <h3 class="card-title">Desaparecidas y encontradas</h3>
+      <p class="card-sub">Directorio buscable de personas reportadas tras el sismo.</p>
+      <span class="card-cta">Buscar personas →</span>
+    </button>
+
+    <button type="button" class="card c-ingresados" data-goto="listados">
+      <div class="card-top">
+        <span class="card-eyebrow">Listados</span>
         <span class="card-go" aria-hidden="true">↗</span>
       </div>
       <h3 class="card-title">Listados de hospitales</h3>
@@ -230,6 +240,7 @@ const stats = [
   .c-servicios { border-top-color: var(--gold-deep); }
   .c-canales { border-top-color: var(--ink); }
   .c-reporta { border-top-color: #2f7d32; }
+  .c-personas { border-top-color: var(--urgent); }
   .c-ingresados { border-top-color: #2563eb; }
 
   .card-top { display: flex; align-items: center; justify-content: space-between; }

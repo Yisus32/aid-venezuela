@@ -122,6 +122,7 @@ const entries = ready ? await getEntries() : [];
             </button>
           </div>
 
+          <div class="table-wrap">
           <table>
       <thead>
         <tr><th>Título</th><th>Organización</th><th>Tipo</th><th>Estado</th><th>Urgencia</th><th></th></tr>
@@ -151,6 +152,7 @@ const entries = ready ? await getEntries() : [];
         }
       </tbody>
     </table>
+          </div>
     <nav class="pager" id="pager" hidden>
       <button type="button" id="pg-prev" class="btn ghost">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
@@ -716,7 +718,8 @@ const entries = ready ? await getEntries() : [];
       .main-col { flex: 1; min-width: 0; }
       .reg-layout.filters-hidden .sidebar { display: none; }
       .main-col .view-tools { margin: 0 0 14px; }
-      .main-col table { width: 100%; margin: 0 0 16px; }
+      .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 0 16px; border-radius: 12px; }
+      .main-col table { width: 100%; margin: 0; }
       .main-col .pager { margin: 8px 0 0; }
       .vt-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
@@ -766,9 +769,9 @@ const entries = ready ? await getEntries() : [];
       .map-pick-label { font-size: 12px; color: var(--muted); }
       #pick-map { height: 240px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 
-      dialog { width: min(780px, 94vw); border: none; border-radius: 16px; padding: 0; box-shadow: 0 24px 70px rgba(20,33,61,0.4); }
+      dialog { width: min(780px, 94vw); max-height: 92vh; border: none; border-radius: 16px; padding: 0; box-shadow: 0 24px 70px rgba(20,33,61,0.4); overflow: hidden; }
       dialog::backdrop { background: rgba(20,33,61,0.5); }
-      form { padding: 24px; }
+      form { padding: 24px; max-height: 92vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
       form h2 { font-family: var(--font-display); font-weight: 800; font-size: 18px; color: var(--ink); margin: 0 0 18px; }
       .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
       label { display: flex; flex-direction: column; gap: 4px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
@@ -780,7 +783,11 @@ const entries = ready ? await getEntries() : [];
       fieldset { grid-column: 1 / -1; border: 1px solid var(--line); border-radius: 10px; }
       legend { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 0 6px; }
       .form-status { color: var(--urgent); font-size: 13px; min-height: 18px; }
-      .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+      .form-actions {
+        display: flex; justify-content: flex-end; gap: 8px;
+        position: sticky; bottom: -24px; margin: 8px -24px -24px; padding: 14px 24px;
+        background: var(--card); border-top: 1px solid var(--line);
+      }
 
       .repeat { padding: 10px 12px 12px; }
       .rrows { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
@@ -820,7 +827,37 @@ const entries = ready ? await getEntries() : [];
       .a-update { color: var(--gold-deep); border-color: #f0dcb4; background: #fbf3e3; }
       .a-delete { color: var(--urgent); border-color: #f5cccc; background: #fef2f2; }
 
-      @media (max-width: 640px) { .grid { grid-template-columns: 1fr 1fr; } }
+      @media (max-width: 640px) {
+        /* Encabezado y barras: menos aire lateral en móvil */
+        .warn { padding: 9px 14px; }
+        .bar { padding: 14px; }
+        .tabs { padding: 0 14px; }
+        .view-tools { margin: 14px 14px 12px; }
+        .reg-layout { padding: 14px 14px 0; }
+        .count { margin: 10px 14px; }
+        .audit-wrap, .pager { margin-left: 14px; margin-right: 14px; }
+
+        /* Tabla de registros: desplázala en horizontal sin romper el layout */
+        table { width: 100%; margin: 0; }
+        .main-col table { min-width: 540px; }
+        th, td { padding: 9px 11px; font-size: 13px; }
+
+        /* Modal: ocupa casi toda la pantalla y deja respirar el formulario */
+        dialog { width: 96vw; max-height: 95vh; }
+        form { padding: 16px; max-height: 95vh; }
+        form h2 { font-size: 16px; margin-bottom: 14px; }
+        .grid { grid-template-columns: 1fr; gap: 11px; }
+        /* El sub-grid de Contacto también a una columna */
+        fieldset .grid { grid-template-columns: 1fr; }
+        #pick-map { height: 200px; }
+        .form-actions { margin: 8px -16px -16px; padding: 12px 16px; }
+        .form-actions .btn { flex: 1; justify-content: center; }
+
+        /* Filas repetibles (Personas / Puntos): apila los inputs */
+        .rrow { flex-wrap: wrap; position: relative; padding-right: 38px; }
+        .rrow input { flex: 1 1 100%; }
+        .rrow .icon-btn { position: absolute; top: 0; right: 0; }
+      }
     </style>
   </body>
 </html>

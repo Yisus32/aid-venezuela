@@ -98,7 +98,7 @@ const OG_IMAGE = `${SITE}/og-image.png`;
             <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M16 19v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM22 19v-2a4 4 0 0 0-3-3.87M16 3.13A4 4 0 0 1 16 11" />
             </svg>
-            <span class="tab-label">Personal</span>
+            <span class="tab-label">Voluntarios</span>
             <span class="tab-count">{personalCount}</span>
           </button>
           <button class="tab" data-tab="mapa">
@@ -122,11 +122,18 @@ const OG_IMAGE = `${SITE}/og-image.png`;
             </svg>
             <span class="tab-label">Canales</span>
           </button>
-          <button class="tab" data-tab="ingresados">
+          <button class="tab" data-tab="personas">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="10" cy="8" r="4" />
+              <path d="M3 20a7 7 0 0 1 12-4.9M16 16l5 5M19 18.5a2.5 2.5 0 1 0-5 0 2.5 2.5 0 0 0 5 0z" />
+            </svg>
+            <span class="tab-label">Personas</span>
+          </button>
+          <button class="tab" data-tab="listados">
             <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M9 12h6M9 16h6" />
             </svg>
-            <span class="tab-label">Ingresados</span>
+            <span class="tab-label">Listados</span>
           </button>
           <button class="tab" data-tab="reporta">
             <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
@@ -175,7 +182,11 @@ const OG_IMAGE = `${SITE}/og-image.png`;
       );
       overlay?.addEventListener("click", () => setDrawer(false));
 
+      // Alias de nombres viejos para no romper deep-links/cards previos.
+      const TAB_ALIASES: Record<string, string> = { ingresados: "listados" };
+
       function activate(name: string) {
+        name = TAB_ALIASES[name] || name;
         if (!document.getElementById("tab-" + name)) return;
         tabs.forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
         panels.forEach((p) => p.classList.toggle("active", p.id === "tab-" + name));

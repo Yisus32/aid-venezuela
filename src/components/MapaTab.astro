@@ -95,8 +95,9 @@ const personalCount = points.filter((p) => p.category === "professional").length
     <p class="panel-eyebrow">Mapa de puntos</p>
     <h2 class="panel-title">Todo sobre el terreno</h2>
     <p class="panel-intro">
-      Centros de acopio, ayuda profesional y los sismos recientes de la región,
-      centrados en Venezuela. Usa la lupa del mapa para buscar cualquier lugar.
+      Centros de acopio, ayuda profesional, sismos recientes e incidentes
+      reportados (colapsos, fugas, vías), centrados en Venezuela. Usa la lupa del
+      mapa para buscar cualquier lugar.
     </p>
   </header>
 
@@ -110,7 +111,10 @@ const personalCount = points.filter((p) => p.category === "professional").length
     <button type="button" class="lg active" data-type="quake" aria-pressed="true">
       <span class="lg-dot quake"></span> Sismos recientes <span id="quake-count" class="lg-n">…</span>
     </button>
-    <span class="quake-src">Sismos: USGS, en tiempo real</span>
+    <button type="button" class="lg active" data-type="sos" aria-pressed="true">
+      <span class="lg-dot sos"></span> Incidentes <span id="sos-count" class="lg-n">…</span>
+    </button>
+    <span class="quake-src">Sismos: USGS · Incidentes: SOS Venezuela 2026</span>
     <button type="button" id="quake-refresh" class="map-reset ghost">⟳ Actualizar sismos</button>
     <button type="button" id="map-reset" class="map-reset">⟲ Centrar en Venezuela</button>
   </div>
@@ -193,10 +197,14 @@ const personalCount = points.filter((p) => p.category === "professional").length
           '<path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-1A3.5 3.5 0 0 0 8 17.5V19M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
         quake:
           '<path d="M4 12h3l2-5 3 10 2-5 1 2h5" fill="none" stroke="#3a2c00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+        sos:
+          '<path d="M12 4 2.5 20h19z M12 10v4 M12 17h.01" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
       };
-      const COLOR = { center: "#2563eb", professional: "#dc2626", quake: "#eab308" };
+      const COLOR = { center: "#2563eb", professional: "#dc2626", quake: "#eab308", sos: "#7c3aed" };
+      // Color del marcador de incidente según severidad reportada.
+      const SEV_COLOR = { rojo: "#d64533", amarillo: "#e8a33d", verde: "#2f7d32" };
 
-      function pin(type, size) {
+      function pin(type, size, color) {
         const s = size || 30;
         return L.divIcon({
           className: "mk-wrap",
@@ -205,7 +213,7 @@ const personalCount = points.filter((p) => p.category === "professional").length
           popupAnchor: [0, -s / 2],
           html:
             '<span class="mk" style="background:' +
-            COLOR[type] +
+            (color || COLOR[type]) +
             ';width:' + s + 'px;height:' + s + 'px">' +
             '<svg viewBox="0 0 24 24">' + ICON[type] + "</svg></span>",
         });
@@ -219,6 +227,7 @@ const personalCount = points.filter((p) => p.category === "professional").length
         center: L.layerGroup().addTo(map),
         professional: L.layerGroup().addTo(map),
         quake: L.layerGroup().addTo(map),
+        sos: L.layerGroup().addTo(map),
       };
 
       // Humanitarian markers from the static metadata.
@@ -265,7 +274,7 @@ const personalCount = points.filter((p) => p.category === "professional").length
 
       // Legend = type filter. Toggling hides/shows that type on the map and
       // (for acopios/personal) in the side list.
-      const active = { center: true, professional: true, quake: true };
+      const active = { center: true, professional: true, quake: true, sos: true };
       const listItems = Array.prototype.slice.call(
         document.querySelectorAll("#map-list .point-item"),
       );
@@ -336,7 +345,7 @@ const personalCount = points.filter((p) => p.category === "professional").length
           btn.setAttribute("aria-pressed", String(active[t]));
           if (active[t]) map.addLayer(layers[t]);
           else map.removeLayer(layers[t]);
-          if (t !== "quake") refreshList();
+          if (t === "center" || t === "professional") refreshList();
         });
       });
 
@@ -360,7 +369,7 @@ const personalCount = points.filter((p) => p.category === "professional").length
       function resetMap() {
         map.closePopup();
         map.setView([8, -66], 6);
-        ["center", "professional", "quake"].forEach((t) => {
+        ["center", "professional", "quake", "sos"].forEach((t) => {
           if (!active[t]) {
             active[t] = true;
             map.addLayer(layers[t]);
@@ -436,6 +445,61 @@ const personalCount = points.filter((p) => p.category === "professional").length
       }
       if (qBtn) qBtn.addEventListener("click", () => loadQuakes(true));
 
+      // Incidentes reportados (SOS Venezuela 2026): colapsos, fugas, vías, etc.
+      // Vía nuestro proxy cacheado. Solo los que traen coordenadas se pintan.
+      const sosCountEl = document.getElementById("sos-count");
+      let sosLoaded = false;
+      const CAT_ES = {
+        collapsed_building: "Edificio colapsado",
+        gas_leak: "Fuga de gas",
+        blocked_road: "Vía bloqueada",
+        relief_center: "Centro de ayuda",
+        fire: "Incendio",
+        flood: "Inundación",
+        medical: "Emergencia médica",
+        missing_person: "Persona desaparecida",
+      };
+      const catLabel = (c) => CAT_ES[c] || String(c || "").replace(/_/g, " ");
+      function loadReports() {
+        if (sosLoaded) return;
+        sosLoaded = true;
+        if (sosCountEl) sosCountEl.textContent = "…";
+        fetch("/api/sos/reports", { cache: "no-store" })
+          .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+          .then((data) => {
+            const reports = Array.isArray(data.reports) ? data.reports : [];
+            layers.sos.clearLayers();
+            let plotted = 0;
+            reports.forEach((rp) => {
+              // Los centros de acopio (aid_point) ya están en nuestra DB y se
+              // pintan como acopios; aquí solo van incidentes reales.
+              if (rp.category === "aid_point") return;
+              const lat = rp.lat_pub, lng = rp.lng_pub;
+              if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+              plotted++;
+              const color = SEV_COLOR[rp.severity] || COLOR.sos;
+              const place = [rp.parroquia, rp.municipio].filter(Boolean).join(" · ");
+              let html = '<strong class="pop-title">' + esc(rp.title || catLabel(rp.category)) + "</strong>";
+              html += '<div class="pop-org">' + esc(catLabel(rp.category)) + "</div>";
+              if (place) html += '<div class="pop-detail">' + esc(place) + "</div>";
+              if (rp.people_trapped_count)
+                html += '<div class="pop-needs"><b>Personas atrapadas:</b> ' + esc(rp.people_trapped_count) + "</div>";
+              if (rp.description) {
+                const d = String(rp.description);
+                html += '<div class="pop-detail">' + esc(d.length > 220 ? d.slice(0, 220) + "…" : d) + "</div>";
+              }
+              if (rp.source_url)
+                html += '<div class="pop-phone"><a href="' + esc(rp.source_url) + '" target="_blank" rel="noopener noreferrer">Ver fuente ↗</a></div>';
+              const m = L.marker([lat, lng], { icon: pin("sos", 28, color) }).bindPopup(html);
+              layers.sos.addLayer(m);
+            });
+            if (sosCountEl) sosCountEl.textContent = "(" + plotted + ")";
+          })
+          .catch(() => {
+            if (sosCountEl) sosCountEl.textContent = "(0)";
+          });
+      }
+
       // When the Mapa tab becomes visible (it starts hidden): fix the map size
       // and lazily load the earthquakes. Fired by sidebar tabs, dashboard cards
       // and hash deep-links alike via the shared "tabchange" event.
@@ -444,11 +508,15 @@ const personalCount = points.filter((p) => p.category === "professional").length
           setTimeout(() => {
             map.invalidateSize();
             loadQuakes();
+            loadReports();
           }, 60);
       });
 
       // If the Mapa tab is already the active one on load, load immediately.
-      if (mapEl.closest(".tab-panel")?.classList.contains("active")) loadQuakes();
+      if (mapEl.closest(".tab-panel")?.classList.contains("active")) {
+        loadQuakes();
+        loadReports();
+      }
     }
     if (document.readyState === "loading")
       document.addEventListener("DOMContentLoaded", start);
@@ -491,6 +559,7 @@ const personalCount = points.filter((p) => p.category === "professional").length
   .lg-dot.center { background: #2563eb; }
   .lg-dot.prof { background: #dc2626; }
   .lg-dot.quake { background: #eab308; }
+  .lg-dot.sos { background: #7c3aed; }
   .quake-src { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-left: auto; }
   .map-reset {
     font-family: var(--font-display);

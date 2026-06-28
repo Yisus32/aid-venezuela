@@ -143,6 +143,24 @@ const OG_IMAGE = `${SITE}/og-image.png`;
           </button>
         </nav>
 
+        <div id="auth-panel" class="auth-panel" data-state="loading">
+          <!-- logged-out -->
+          <form id="auth-form" class="auth-form" hidden>
+            <h3 id="auth-title">Iniciar sesión</h3>
+            <input name="nickname" placeholder="Apodo" autocomplete="username" required />
+            <input name="password" type="password" placeholder="Clave" autocomplete="current-password" required />
+            <p class="auth-error" id="auth-error" role="alert"></p>
+            <button type="submit" class="btn-auth" id="auth-submit">Entrar</button>
+            <button type="button" class="auth-toggle" id="auth-toggle">¿No tienes cuenta? Regístrate</button>
+          </form>
+          <!-- logged-in -->
+          <div id="auth-me" class="auth-me" hidden>
+            <span>Hola, <strong id="auth-nick"></strong></span>
+            <button type="button" id="btn-suggest" class="btn-auth">Sugerir centro / profesional</button>
+            <button type="button" id="btn-logout" class="auth-toggle">Cerrar sesión</button>
+          </div>
+        </div>
+
         <div class="rail-foot">
           <p class="solidarity">#FuerzaVenezuela</p>
           <p class="source">Datos transcritos de avisos de centros de acopio y ayuda.</p>
@@ -207,6 +225,119 @@ const OG_IMAGE = `${SITE}/og-image.png`;
       // Deep-link: open the section named in the URL hash (#tab-mapa).
       const fromHash = location.hash.replace("#tab-", "");
       if (fromHash) activate(fromHash);
+    </script>
+
+    <dialog id="submit-dialog" class="submit-dialog">
+      <form id="submit-form">
+        <h3>Sugerir un centro / profesional</h3>
+        <label>Tipo
+          <select name="category"><option value="center">Centro</option><option value="professional">Profesional</option></select>
+        </label>
+        <label>Título * <input name="title" required /></label>
+        <label>Organización <input name="organization" /></label>
+        <label>Especialidad <input name="specialty" /></label>
+        <label>País <input name="country" value="Venezuela" /></label>
+        <label>Estado <input name="state" /></label>
+        <label>Ciudad <input name="city" /></label>
+        <label>Dirección <input name="address" /></label>
+        <label>Descripción <textarea name="description" rows="2"></textarea></label>
+        <label>Necesidades (una por línea) <textarea name="needs" rows="3"></textarea></label>
+        <fieldset><legend>Contacto</legend>
+          <input name="c_phone" placeholder="Teléfono" /><input name="c_whatsapp" placeholder="WhatsApp" />
+          <input name="c_instagram" placeholder="Instagram" /><input name="c_website" placeholder="Web" />
+          <input name="c_email" placeholder="Correo" />
+        </fieldset>
+        <div class="map-pick"><span>Ubicación (opcional): clic en el mapa</span><div id="submit-map"></div></div>
+        <input type="hidden" name="lat" /><input type="hidden" name="lng" />
+        <p class="submit-status" id="submit-status"></p>
+        <menu>
+          <button type="button" id="submit-cancel">Cancelar</button>
+          <button type="button" id="submit-send" class="btn-auth">Enviar para revisión</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script>
+      const panel = document.getElementById("auth-panel");
+      const form = document.getElementById("auth-form");
+      const meBox = document.getElementById("auth-me");
+      const errEl = document.getElementById("auth-error");
+      const titleEl = document.getElementById("auth-title");
+      const submitBtn = document.getElementById("auth-submit");
+      const toggle = document.getElementById("auth-toggle");
+      let mode = "login"; // or "signup"
+
+      function setMode(m) {
+        mode = m;
+        titleEl.textContent = m === "login" ? "Iniciar sesión" : "Crear cuenta";
+        submitBtn.textContent = m === "login" ? "Entrar" : "Crear cuenta";
+        toggle.textContent = m === "login" ? "¿No tienes cuenta? Regístrate" : "¿Ya tienes cuenta? Inicia sesión";
+        errEl.textContent = "";
+        form.querySelector('[name=password]').setAttribute("autocomplete", m === "login" ? "current-password" : "new-password");
+      }
+      function render(user) {
+        panel.dataset.state = user ? "in" : "out";
+        form.hidden = !!user; meBox.hidden = !user;
+        if (user) document.getElementById("auth-nick").textContent = user.nickname;
+      }
+      async function refresh() {
+        try { render(await (await fetch("/api/auth/me")).json()); }
+        catch { render(null); }
+      }
+      toggle.addEventListener("click", () => setMode(mode === "login" ? "signup" : "login"));
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        errEl.textContent = "";
+        const nickname = form.nickname.value.trim();
+        const password = form.password.value;
+        const r = await fetch("/api/auth/" + (mode === "login" ? "login" : "signup"), {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ nickname, password }),
+        });
+        if (r.ok) { form.reset(); await refresh(); }
+        else errEl.textContent = await r.text();
+      });
+      document.getElementById("btn-logout").addEventListener("click", async () => {
+        await fetch("/api/auth/logout", { method: "POST" }); render(null); setMode("login");
+      });
+
+      // Submission dialog
+      const dlg = document.getElementById("submit-dialog");
+      const sform = document.getElementById("submit-form");
+      const sstatus = document.getElementById("submit-status");
+      let smap, smarker;
+      function initSubmitMap() {
+        if (smap || typeof L === "undefined") return;
+        smap = L.map("submit-map", { scrollWheelZoom: false }).setView([8, -66], 5);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(smap);
+        smap.on("click", (e) => {
+          sform.lat.value = e.latlng.lat.toFixed(6); sform.lng.value = e.latlng.lng.toFixed(6);
+          if (smarker) smarker.setLatLng(e.latlng); else smarker = L.marker(e.latlng).addTo(smap);
+        });
+      }
+      document.getElementById("btn-suggest").addEventListener("click", () => {
+        sstatus.textContent = ""; dlg.showModal(); setTimeout(() => { initSubmitMap(); smap && smap.invalidateSize(); }, 80);
+      });
+      document.getElementById("submit-cancel").addEventListener("click", () => dlg.close());
+      document.getElementById("submit-send").addEventListener("click", async () => {
+        const g = (n) => (sform.elements[n]?.value || "").trim();
+        const lat = parseFloat(g("lat")), lng = parseFloat(g("lng"));
+        const payload = {
+          category: g("category"), title: g("title"),
+          organization: g("organization"), specialty: g("specialty"), description: g("description"),
+          location: { country: g("country"), state: g("state"), city: g("city"), address: g("address") },
+          needs: g("needs"),
+          contact: { phone: g("c_phone"), whatsapp: g("c_whatsapp"), instagram: g("c_instagram"), website: g("c_website"), email: g("c_email") },
+          ...(Number.isFinite(lat) && Number.isFinite(lng) ? { coords: { lat, lng } } : {}),
+        };
+        sstatus.textContent = "Enviando…";
+        const r = await fetch("/api/submissions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+        if (r.ok) { sstatus.textContent = "¡Enviado para revisión!"; sform.reset(); setTimeout(() => dlg.close(), 1200); }
+        else sstatus.textContent = "Error: " + (await r.text());
+      });
+
+      setMode("login");
+      refresh();
     </script>
 
     <style is:global>
@@ -492,6 +623,25 @@ const OG_IMAGE = `${SITE}/og-image.png`;
       @media (prefers-reduced-motion: reduce) {
         .seismo path { animation: none; stroke-dashoffset: 0; }
       }
+
+      /* ---- AID-013: sidebar auth widget ---- */
+      .auth-panel { padding: 12px 14px; border-top: 1px solid rgba(255,255,255,0.12); display: flex; flex-direction: column; gap: 8px; }
+      .auth-form, .auth-me { display: flex; flex-direction: column; gap: 8px; }
+      .auth-form input { padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.06); color: inherit; }
+      .auth-error { color: #ffb4ab; font-size: 12px; min-height: 14px; margin: 0; }
+      .btn-auth { padding: 8px 12px; border-radius: 8px; border: none; background: var(--gold, #e8a33d); color: #14213d; font-weight: 700; cursor: pointer; }
+      .auth-toggle { background: none; border: none; color: inherit; opacity: 0.8; font-size: 12px; cursor: pointer; text-align: left; padding: 0; }
+      .auth-panel[data-state="loading"] .auth-form, .auth-panel[data-state="loading"] .auth-me { display: none; }
+
+      /* ---- AID-013: submission dialog ---- */
+      .submit-dialog { width: min(560px, 94vw); border: none; border-radius: 14px; padding: 20px; }
+      .submit-dialog form { display: flex; flex-direction: column; gap: 8px; }
+      .submit-dialog label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+      .submit-dialog input, .submit-dialog select, .submit-dialog textarea { padding: 8px 10px; border: 1px solid #d8dbe2; border-radius: 8px; }
+      .submit-dialog fieldset { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; border: 1px solid #e3e6ec; border-radius: 8px; }
+      #submit-map { height: 200px; border-radius: 8px; overflow: hidden; }
+      .submit-dialog menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; margin: 6px 0 0; }
+      .submit-status { font-size: 13px; min-height: 16px; margin: 0; }
     </style>
   </body>
 </html>

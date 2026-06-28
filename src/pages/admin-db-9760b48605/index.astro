@@ -1,12 +1,11 @@
 ---
 // AID-09: hidden admin CRUD. On-demand (not prerendered), at an unguessable
-// URL, guarded by ADMIN_TOKEN on the API. NOT linked anywhere in the site.
+// URL, guarded by session-cookie login (admin role). NOT linked anywhere in the site.
 export const prerender = false;
 
 import { getEntries, dbAvailable } from "../../lib/db";
 
-const token = process.env.ADMIN_TOKEN ?? "";
-const ready = dbAvailable() && !!token;
+const ready = dbAvailable();
 const entries = ready ? await getEntries() : [];
 ---
 
@@ -51,13 +50,20 @@ const entries = ready ? await getEntries() : [];
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
         Auditoría
       </button>
+      <button class="tab" type="button" data-view="pendientes">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Pendientes <span id="pend-count" class="tab-badge" hidden>0</span>
+      </button>
+      <button class="tab" type="button" data-view="usuarios">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 .01M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
+        Usuarios
+      </button>
     </nav>
 
     {
       !ready && (
         <p class="nodb">
-          La base de datos no está configurada (falta <code>DATABASE_URL</code> o{" "}
-          <code>ADMIN_TOKEN</code>). Configúralas para administrar registros.
+          La base de datos no está configurada (falta <code>DATABASE_URL</code>). Configúrala para administrar registros.
         </p>
       )
     }
@@ -186,6 +192,23 @@ const entries = ready ? await getEntries() : [];
       </div>
     </section>
 
+    <section id="view-pendientes" class="view">
+      <div class="view-tools"><p class="audit-note">Sugerencias enviadas por usuarios. Aprobar crea el registro; rechazar lo descarta.</p>
+        <button type="button" id="pend-refresh" class="btn ghost">Actualizar</button></div>
+      <div class="audit-wrap"><table class="audit-table">
+        <thead><tr><th>Fecha</th><th>De</th><th>Tipo</th><th>Título</th><th>Estado/Ciudad</th><th></th></tr></thead>
+        <tbody id="pend-rows"><tr><td colspan="6">—</td></tr></tbody>
+      </table></div>
+    </section>
+    <section id="view-usuarios" class="view">
+      <div class="view-tools"><p class="audit-note">Cuentas registradas. Puedes nombrar o quitar administradores.</p>
+        <button type="button" id="users-refresh" class="btn ghost">Actualizar</button></div>
+      <div class="audit-wrap"><table class="audit-table">
+        <thead><tr><th>Apodo</th><th>Rol</th><th>Creado</th><th></th></tr></thead>
+        <tbody id="users-rows"><tr><td colspan="4">—</td></tr></tbody>
+      </table></div>
+    </section>
+
     <!-- Editor -->
     <dialog id="editor">
       <form id="form" method="dialog">
@@ -263,18 +286,6 @@ const entries = ready ? await getEntries() : [];
     </dialog>
 
     <script is:inline define:vars={{ ENTRIES: entries }}>
-      // The repo is public, so the admin URL is discoverable. The token is NOT
-      // embedded in the page — the admin enters it once (kept in sessionStorage)
-      // and it only ever lives in Netlify env + the request header.
-      let TOKEN = sessionStorage.getItem("adminToken") || "";
-      function ensureToken() {
-        if (!TOKEN) {
-          TOKEN = (prompt("Token de administración:") || "").trim();
-          if (TOKEN) sessionStorage.setItem("adminToken", TOKEN);
-        }
-        return TOKEN;
-      }
-      function clearToken() { TOKEN = ""; sessionStorage.removeItem("adminToken"); }
       const slug = (s) => (s || "").toLowerCase().normalize("NFD")
         .replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "").slice(0, 40);
@@ -459,10 +470,10 @@ const entries = ready ? await getEntries() : [];
         try {
           const r = await fetch(url, {
             method: mode === "create" ? "POST" : "PATCH",
-            headers: { "content-type": "application/json", "x-admin-token": TOKEN },
+            headers: { "content-type": "application/json" },
             body: JSON.stringify(payload),
           });
-          if (r.status === 401) { clearToken(); alert("Token inválido. Recarga la página."); location.reload(); return; }
+          if (r.status === 401) { alert("No autorizado. Recarga la página."); location.reload(); return; }
           if (!r.ok) { statusEl.textContent = "Error: " + (await r.text()); return; }
           dlg.close();
           await refresh(); // re-renderiza sin recargar el navegador
@@ -472,9 +483,9 @@ const entries = ready ? await getEntries() : [];
       async function del(filename) {
         if (!confirm("¿Borrar «" + filename + "»? Esto afecta la base en vivo.")) return;
         const r = await fetch("/api/admin/points/" + encodeURIComponent(filename), {
-          method: "DELETE", headers: { "x-admin-token": TOKEN },
+          method: "DELETE",
         });
-        if (r.status === 401) { clearToken(); alert("Token inválido. Recarga la página."); location.reload(); return; }
+        if (r.status === 401) { alert("No autorizado. Recarga la página."); location.reload(); return; }
         if (r.ok) await refresh(); else alert("Error: " + (await r.text()));
       }
 
@@ -514,7 +525,7 @@ const entries = ready ? await getEntries() : [];
         const tb = document.getElementById("audit-rows");
         tb.innerHTML = '<tr><td colspan="6">Cargando…</td></tr>';
         try {
-          const r = await fetch("/api/admin/audit", { headers: { "x-admin-token": TOKEN } });
+          const r = await fetch("/api/admin/audit");
           if (!r.ok) { tb.innerHTML = '<tr><td colspan="6">No se pudo cargar.</td></tr>'; return; }
           const rows = await r.json();
           if (!rows.length) { tb.innerHTML = '<tr><td colspan="6">Sin movimientos de auditoría todavía.</td></tr>'; return; }
@@ -538,6 +549,8 @@ const entries = ready ? await getEntries() : [];
           document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("active", x === t));
           document.querySelectorAll(".view").forEach((p) => p.classList.toggle("active", p.id === "view-" + v));
           if (v === "auditoria" && !auditLoaded) loadAudit();
+          if (v === "pendientes") loadPending();
+          if (v === "usuarios") loadUsers();
         });
       });
       document.getElementById("audit-refresh").addEventListener("click", loadAudit);
@@ -645,35 +658,102 @@ const entries = ready ? await getEntries() : [];
       // Refresco en vivo: re-consulta la API y re-renderiza (sin recargar).
       async function refresh() {
         try {
-          const r = await fetch("/api/admin/points", { headers: { "x-admin-token": TOKEN } });
+          const r = await fetch("/api/admin/points");
           if (!r.ok) return;
           DATA = await r.json();
           byName = Object.fromEntries(DATA.map((e) => [e.filename, e]));
           rebuildOptions();
           render();
           auditLoaded = false; // hubo un cambio: recargar la auditoría al abrirla
+          loadPending();
         } catch {}
       }
 
       rebuildOptions();
       render();
 
-      // Pide el token al ENTRAR a la página (una sola vez) y lo valida contra la
-      // API. Una vez validado, guardar/borrar no vuelven a pedirlo.
-      (async function gate() {
-        for (;;) {
-          if (!ensureToken()) {
-            document.body.innerHTML =
-              '<p style="padding:40px;font-family:system-ui">Token requerido. Recarga la página para reintentar.</p>';
-            return;
-          }
-          try {
-            const r = await fetch("/api/admin/points", { headers: { "x-admin-token": TOKEN } });
-            if (r.ok) return;
-          } catch {}
-          clearToken();
-          alert("Token inválido.");
+      async function loadPending() {
+        const tb = document.getElementById("pend-rows");
+        tb.innerHTML = '<tr><td colspan="6">Cargando…</td></tr>';
+        try {
+          const rows = await (await fetch("/api/admin/submissions?status=pending")).json();
+          const badge = document.getElementById("pend-count");
+          badge.textContent = rows.length; badge.hidden = rows.length === 0;
+          if (!rows.length) { tb.innerHTML = '<tr><td colspan="6">Sin pendientes.</td></tr>'; return; }
+          tb.innerHTML = rows.map((s) => {
+            const p = s.payload || {};
+            const when = new Date(s.createdAt).toLocaleString("es-VE");
+            const cat = p.category === "professional" ? "Profesional" : "Centro";
+            const loc = [p.location?.state, p.location?.city].filter(Boolean).join(" / ") || "—";
+            return `<tr data-id="${esc(s.id)}"><td>${esc(when)}</td><td>${esc(s.submittedBy?.nickname || "—")}</td>`
+              + `<td>${cat}</td><td>${esc(p.title || "—")}</td><td>${esc(loc)}</td>`
+              + `<td class="actions"><button class="icon-btn approve" data-id="${esc(s.id)}" title="Aprobar">✓</button>`
+              + `<button class="icon-btn danger reject" data-id="${esc(s.id)}" title="Rechazar">✕</button></td></tr>`;
+          }).join("");
+        } catch { tb.innerHTML = '<tr><td colspan="6">Error.</td></tr>'; }
+      }
+      document.getElementById("pend-rows").addEventListener("click", async (ev) => {
+        const b = ev.target.closest("button"); if (!b) return;
+        const id = b.dataset.id;
+        if (b.classList.contains("approve")) {
+          await fetch(`/api/admin/submissions/${id}/approve`, { method: "POST" });
+          await loadPending(); await refresh();
+        } else if (b.classList.contains("reject")) {
+          if (!confirm("¿Rechazar esta sugerencia?")) return;
+          await fetch(`/api/admin/submissions/${id}/reject`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+          await loadPending();
         }
+      });
+      document.getElementById("pend-refresh").addEventListener("click", loadPending);
+
+      async function loadUsers() {
+        const tb = document.getElementById("users-rows");
+        tb.innerHTML = '<tr><td colspan="4">Cargando…</td></tr>';
+        try {
+          const rows = await (await fetch("/api/admin/users")).json();
+          tb.innerHTML = rows.map((u) => {
+            const when = new Date(u.createdAt).toLocaleDateString("es-VE");
+            const isAdmin = u.role === "admin";
+            const action = isAdmin
+              ? `<button class="icon-btn role-btn" data-id="${esc(u.id)}" data-role="user">Quitar admin</button>`
+              : `<button class="icon-btn role-btn" data-id="${esc(u.id)}" data-role="admin">Hacer admin</button>`;
+            return `<tr><td>${esc(u.nickname)}</td><td>${isAdmin ? "Admin" : "Usuario"}</td><td>${esc(when)}</td><td class="actions">${action}</td></tr>`;
+          }).join("");
+        } catch { tb.innerHTML = '<tr><td colspan="4">Error.</td></tr>'; }
+      }
+      document.getElementById("users-rows").addEventListener("click", async (ev) => {
+        const b = ev.target.closest(".role-btn"); if (!b) return;
+        const r = await fetch(`/api/admin/users/${b.dataset.id}/role`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ role: b.dataset.role }) });
+        if (!r.ok) alert(await r.text());
+        await loadUsers();
+      });
+      document.getElementById("users-refresh").addEventListener("click", loadUsers);
+
+      (async function gate() {
+        let me = null;
+        try { me = await (await fetch("/api/auth/me")).json(); } catch {}
+        if (!me) {
+          document.body.innerHTML = '<form id="lg" style="max-width:280px;margin:80px auto;font-family:system-ui;display:flex;flex-direction:column;gap:10px">'
+            + '<h2>Admin · iniciar sesión</h2>'
+            + '<input name="nickname" placeholder="Apodo" required>'
+            + '<input name="password" type="password" placeholder="Clave" required>'
+            + '<p id="lgerr" style="color:#d64533;min-height:16px;margin:0"></p>'
+            + '<button>Entrar</button></form>';
+          document.getElementById("lg").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const f = e.target;
+            const r = await fetch("/api/auth/login", { method: "POST", headers: { "content-type": "application/json" },
+              body: JSON.stringify({ nickname: f.nickname.value.trim(), password: f.password.value }) });
+            if (r.ok) location.reload(); else document.getElementById("lgerr").textContent = await r.text();
+          });
+          return;
+        }
+        if (me.role !== "admin") {
+          document.body.innerHTML = '<p style="padding:40px;font-family:system-ui">No autorizado. Tu cuenta no es de administrador.</p>';
+          return;
+        }
+        // admin confirmed → load data
+        await refresh();
       })();
     </script>
 
@@ -826,6 +906,8 @@ const entries = ready ? await getEntries() : [];
       .a-create { color: #2f7d32; border-color: #cde8cf; background: #eef6ee; }
       .a-update { color: var(--gold-deep); border-color: #f0dcb4; background: #fbf3e3; }
       .a-delete { color: var(--urgent); border-color: #f5cccc; background: #fef2f2; }
+      .tab-badge { background: var(--gold); color: #14213d; border-radius: 20px; padding: 1px 7px; font-size: 11px; font-weight: 700; margin-left: 4px; }
+      .audit-table .approve { color: #2f7d32; } .audit-table .reject { color: var(--urgent); }
 
       @media (max-width: 640px) {
         /* Encabezado y barras: menos aire lateral en móvil */

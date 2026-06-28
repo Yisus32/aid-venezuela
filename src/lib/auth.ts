@@ -32,9 +32,6 @@ function secret(): string | null {
   return s && s.length > 0 ? s : null;
 }
 
-const b64u = (buf: crypto.BinaryLike): string =>
-  Buffer.from(buf as any).toString("base64url");
-
 export function signSession(uid: string, now: number = Date.now()): string | null {
   const s = secret();
   if (!s) return null;

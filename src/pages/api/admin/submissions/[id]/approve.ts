@@ -17,7 +17,7 @@ export const POST: APIRoute = async ({ request, params, clientAddress }) => {
   if (sub.status === "approved") return Response.json({ ok: true, already: true });
   const payload: any = { ...(sub.payload as any) };
   if (!payload.filename) {
-    payload.filename = "reg-" + (slug(payload.title) || "centro") + "-" + Math.random().toString(36).slice(2, 7);
+    payload.filename = "reg-" + (slug(payload.title) || "centro") + "-" + sub.id.slice(-6);
   }
   await writePoint(payload);
   await markSubmission(sub.id, "approved");

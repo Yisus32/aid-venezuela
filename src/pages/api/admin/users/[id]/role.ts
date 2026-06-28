@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { requireAdmin, setRole, countAdmins, getCurrentUser } from "../../../../../lib/accounts";
+import { requireAdmin, setRole, countAdmins } from "../../../../../lib/accounts";
 
 export const prerender = false;
 

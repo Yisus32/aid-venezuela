@@ -1,12 +1,14 @@
 import type { APIRoute } from "astro";
 import { writePoint, deletePoint, logAudit } from "../../../../lib/db";
-import { checkAdmin, reqMeta } from "../../../../lib/admin-auth";
+import { reqMeta } from "../../../../lib/admin-auth";
+import { requireAdmin } from "../../../../lib/accounts";
 
 export const prerender = false;
 
 // PATCH: update the entry with this filename. DELETE: remove it.
 export const PATCH: APIRoute = async ({ request, params, clientAddress }) => {
-  if (!checkAdmin(request)) return new Response("Unauthorized", { status: 401 });
+  const admin = await requireAdmin(request);
+  if (!admin) return new Response("Unauthorized", { status: 401 });
   try {
     const body = await request.json();
     body.filename = params.filename;
@@ -17,6 +19,7 @@ export const PATCH: APIRoute = async ({ request, params, clientAddress }) => {
       filename: body.filename,
       title: body.title,
       category: body.category,
+      actorNickname: admin.nickname,
       ...reqMeta(request, clientAddress),
     });
     return Response.json({ ok: true });
@@ -26,7 +29,8 @@ export const PATCH: APIRoute = async ({ request, params, clientAddress }) => {
 };
 
 export const DELETE: APIRoute = async ({ request, params, clientAddress }) => {
-  if (!checkAdmin(request)) return new Response("Unauthorized", { status: 401 });
+  const admin = await requireAdmin(request);
+  if (!admin) return new Response("Unauthorized", { status: 401 });
   try {
     const removed = await deletePoint(params.filename!);
     await logAudit({
@@ -34,6 +38,7 @@ export const DELETE: APIRoute = async ({ request, params, clientAddress }) => {
       filename: params.filename!,
       title: removed?.title,
       category: removed?.category,
+      actorNickname: admin.nickname,
       ...reqMeta(request, clientAddress),
     });
     return Response.json({ ok: true });

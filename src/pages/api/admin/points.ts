@@ -1,12 +1,13 @@
 import type { APIRoute } from "astro";
 import { getEntries, writePoint, logAudit } from "../../../lib/db";
-import { checkAdmin, reqMeta } from "../../../lib/admin-auth";
+import { reqMeta } from "../../../lib/admin-auth";
+import { requireAdmin } from "../../../lib/accounts";
 
 export const prerender = false;
 
 // GET: list all entries (for the admin table). POST: create a new entry.
 export const GET: APIRoute = async ({ request }) => {
-  if (!checkAdmin(request)) return new Response("Unauthorized", { status: 401 });
+  if (!(await requireAdmin(request))) return new Response("Unauthorized", { status: 401 });
   return Response.json(await getEntries());
 };
 
@@ -20,7 +21,8 @@ const slug = (s: string) =>
     .slice(0, 40);
 
 export const POST: APIRoute = async ({ request, clientAddress }) => {
-  if (!checkAdmin(request)) return new Response("Unauthorized", { status: 401 });
+  const admin = await requireAdmin(request);
+  if (!admin) return new Response("Unauthorized", { status: 401 });
   try {
     const body = await request.json();
     if (!body?.title) throw new Error("Falta el título");
@@ -34,6 +36,7 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
       filename: body.filename,
       title: body.title,
       category: body.category,
+      actorNickname: admin.nickname,
       ...reqMeta(request, clientAddress),
     });
     return Response.json({ ok: true });

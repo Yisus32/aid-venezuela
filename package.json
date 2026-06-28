@@ -13,7 +13,8 @@
     "preview": "astro preview",
     "astro": "astro",
     "generate-db": "node scripts/generate-db.mjs",
-    "seed": "node scripts/seed-db.mjs"
+    "seed": "node scripts/seed-db.mjs",
+    "seed-users": "node scripts/seed-users.mjs"
   },
   "dependencies": {
     "@astrojs/netlify": "^8.0.0",

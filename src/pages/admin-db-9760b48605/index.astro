@@ -35,10 +35,16 @@ const entries = ready ? await getEntries() : [];
 
     <header class="bar">
       <h1>Admin · Ayuda Venezuela</h1>
-      <button id="copy-url" type="button" class="btn ghost">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></svg>
-        Copiar URL
-      </button>
+      <div class="bar-actions">
+        <a href="/" class="btn ghost">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" /><circle cx="12" cy="12" r="3" /></svg>
+          Ver sitio
+        </a>
+        <button id="copy-url" type="button" class="btn ghost">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></svg>
+          Copiar URL
+        </button>
+      </div>
     </header>
 
     <nav class="tabs" aria-label="Vistas">

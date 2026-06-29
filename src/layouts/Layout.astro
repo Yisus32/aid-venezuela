@@ -65,6 +65,17 @@ const OG_IMAGE = `${SITE}/og-image.png`;
         <span class="mobile-word">Ayuda Venezuela</span>
       </header>
       <div class="rail-overlay" id="rail-overlay" hidden></div>
+
+      <!-- AID-013: account button, pinned top-right -->
+      <div id="auth-panel" class="auth-panel" data-state="loading">
+        <a id="auth-out" href="/login" class="auth-btn" hidden>Iniciar sesión</a>
+        <div id="auth-me" class="auth-me" hidden>
+          <span class="auth-greet">Hola, <strong id="auth-nick"></strong></span>
+          <a id="auth-admin" href="/admin-db-9760b48605/" class="auth-btn" hidden>Moderación</a>
+          <button type="button" id="btn-logout" class="auth-btn ghost">Cerrar sesión</button>
+        </div>
+      </div>
+
       <aside class="rail" id="rail">
         <div class="brand">
           <p class="eyebrow">Respuesta al terremoto</p>
@@ -207,6 +218,97 @@ const OG_IMAGE = `${SITE}/og-image.png`;
       // Deep-link: open the section named in the URL hash (#tab-mapa).
       const fromHash = location.hash.replace("#tab-", "");
       if (fromHash) activate(fromHash);
+    </script>
+
+    <dialog id="submit-dialog" class="submit-dialog">
+      <form id="submit-form">
+        <h3>Sugerir un centro / profesional</h3>
+        <label>Tipo
+          <select name="category"><option value="center">Centro</option><option value="professional">Profesional</option></select>
+        </label>
+        <label>Título * <input name="title" required /></label>
+        <label>Organización <input name="organization" /></label>
+        <label>Especialidad <input name="specialty" /></label>
+        <label>País <input name="country" value="Venezuela" /></label>
+        <label>Estado <input name="state" /></label>
+        <label>Ciudad <input name="city" /></label>
+        <label>Dirección <input name="address" /></label>
+        <label>Descripción <textarea name="description" rows="2"></textarea></label>
+        <label>Necesidades (una por línea) <textarea name="needs" rows="3"></textarea></label>
+        <fieldset><legend>Contacto</legend>
+          <input name="c_phone" placeholder="Teléfono" /><input name="c_whatsapp" placeholder="WhatsApp" />
+          <input name="c_instagram" placeholder="Instagram" /><input name="c_website" placeholder="Web" />
+          <input name="c_email" placeholder="Correo" />
+        </fieldset>
+        <div class="map-pick"><span>Ubicación (opcional): clic en el mapa</span><div id="submit-map"></div></div>
+        <input type="hidden" name="lat" /><input type="hidden" name="lng" />
+        <p class="submit-status" id="submit-status"></p>
+        <menu>
+          <button type="button" id="submit-cancel" class="auth-btn ghost">Cancelar</button>
+          <button type="button" id="submit-send" class="auth-btn">Enviar para revisión</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script>
+      const panel = document.getElementById("auth-panel");
+      const loggedOut = document.getElementById("auth-out");
+      const meBox = document.getElementById("auth-me");
+      const adminLink = document.getElementById("auth-admin");
+      let currentUser = null;
+
+      function render(user) {
+        currentUser = user;
+        panel.dataset.state = user ? "in" : "out";
+        loggedOut.hidden = !!user; meBox.hidden = !user;
+        adminLink.hidden = !(user && user.role === "admin");
+        if (user) document.getElementById("auth-nick").textContent = user.nickname;
+      }
+      async function refresh() {
+        try { render(await (await fetch("/api/auth/me")).json()); }
+        catch { render(null); }
+      }
+      document.getElementById("btn-logout").addEventListener("click", async () => {
+        await fetch("/api/auth/logout", { method: "POST" }); render(null);
+      });
+
+      // Submission dialog
+      const dlg = document.getElementById("submit-dialog");
+      const sform = document.getElementById("submit-form");
+      const sstatus = document.getElementById("submit-status");
+      let smap, smarker;
+      function initSubmitMap() {
+        if (smap || typeof L === "undefined") return;
+        smap = L.map("submit-map", { scrollWheelZoom: false }).setView([8, -66], 5);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(smap);
+        smap.on("click", (e) => {
+          sform.lat.value = e.latlng.lat.toFixed(6); sform.lng.value = e.latlng.lng.toFixed(6);
+          if (smarker) smarker.setLatLng(e.latlng); else smarker = L.marker(e.latlng).addTo(smap);
+        });
+      }
+      const suggestBtn = document.getElementById("dash-suggest");
+      if (suggestBtn) suggestBtn.addEventListener("click", () => {
+        sstatus.textContent = ""; dlg.showModal(); setTimeout(() => { initSubmitMap(); smap && smap.invalidateSize(); }, 80);
+      });
+      document.getElementById("submit-cancel").addEventListener("click", () => dlg.close());
+      document.getElementById("submit-send").addEventListener("click", async () => {
+        const g = (n) => (sform.elements[n]?.value || "").trim();
+        const lat = parseFloat(g("lat")), lng = parseFloat(g("lng"));
+        const payload = {
+          category: g("category"), title: g("title"),
+          organization: g("organization"), specialty: g("specialty"), description: g("description"),
+          location: { country: g("country"), state: g("state"), city: g("city"), address: g("address") },
+          needs: g("needs"),
+          contact: { phone: g("c_phone"), whatsapp: g("c_whatsapp"), instagram: g("c_instagram"), website: g("c_website"), email: g("c_email") },
+          ...(Number.isFinite(lat) && Number.isFinite(lng) ? { coords: { lat, lng } } : {}),
+        };
+        sstatus.textContent = "Enviando…";
+        const r = await fetch("/api/submissions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+        if (r.ok) { sstatus.textContent = "¡Enviado para revisión!"; sform.reset(); setTimeout(() => dlg.close(), 1200); }
+        else sstatus.textContent = "Error: " + (await r.text());
+      });
+
+      refresh();
     </script>
 
     <style is:global>
@@ -492,6 +594,41 @@ const OG_IMAGE = `${SITE}/og-image.png`;
       @media (prefers-reduced-motion: reduce) {
         .seismo path { animation: none; stroke-dashoffset: 0; }
       }
+
+      /* ---- AID-013: sidebar auth widget ---- */
+      /* AID-013: account button pinned to the top-right corner (no card). */
+      .auth-panel { position: fixed; top: 14px; right: 18px; z-index: 35; display: flex; align-items: center; gap: 12px; }
+      .auth-panel[data-state="loading"] { display: none; }
+      /* `hidden` must win over the display rules below (else logout shows when logged out). */
+      .auth-panel [hidden] { display: none !important; }
+      .auth-me { display: flex; align-items: center; gap: 12px; }
+      .auth-greet { font-size: 13px; color: var(--ink); font-weight: 600; }
+      .auth-btn {
+        display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px;
+        border-radius: 10px; border: none; background: var(--gold); color: #14213d;
+        font-family: var(--font-display); font-weight: 700; font-size: 13.5px; cursor: pointer;
+        text-decoration: none; box-shadow: 0 4px 14px rgba(232, 163, 61, 0.35);
+        transition: filter 0.15s, transform 0.15s;
+      }
+      .auth-btn:hover { filter: brightness(0.96); transform: translateY(-1px); }
+      .auth-btn.ghost { background: transparent; color: var(--muted); box-shadow: none; border: 1px solid var(--line); font-weight: 600; }
+      .auth-btn.ghost:hover { color: var(--ink); border-color: var(--ink); }
+
+      @media (max-width: 860px) {
+        .auth-panel { top: 9px; right: 10px; gap: 8px; }
+        .auth-btn { padding: 7px 12px; font-size: 12.5px; }
+        .auth-greet { display: none; }
+      }
+
+      /* ---- AID-013: submission dialog ---- */
+      .submit-dialog { width: min(560px, 94vw); border: none; border-radius: 14px; padding: 20px; }
+      .submit-dialog form { display: flex; flex-direction: column; gap: 8px; }
+      .submit-dialog label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+      .submit-dialog input, .submit-dialog select, .submit-dialog textarea { padding: 8px 10px; border: 1px solid #d8dbe2; border-radius: 8px; }
+      .submit-dialog fieldset { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; border: 1px solid #e3e6ec; border-radius: 8px; }
+      #submit-map { height: 200px; border-radius: 8px; overflow: hidden; }
+      .submit-dialog menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; margin: 6px 0 0; }
+      .submit-status { font-size: 13px; min-height: 16px; margin: 0; }
     </style>
   </body>
 </html>

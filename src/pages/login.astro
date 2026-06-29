@@ -1,0 +1,166 @@
+---
+// AID-013: dedicated login / signup view. Client-driven — posts to the existing
+// /api/auth endpoints and redirects back (?next=, default "/").
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Iniciar sesión · Ayuda Venezuela</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <main class="wrap">
+      <a class="back" href="/">← Volver al inicio</a>
+
+      <div class="brand">
+        <p class="eyebrow">Respuesta al terremoto</p>
+        <h1 class="wordmark">Ayuda Venezuela</h1>
+      </div>
+
+      <form id="auth-form" class="card">
+        <h2 id="auth-title">Iniciar sesión</h2>
+        <p class="hint" id="auth-hint">Entra con tu apodo y clave.</p>
+
+        <label>Apodo
+          <input name="nickname" autocomplete="username" required />
+        </label>
+        <label>Clave
+          <input name="password" type="password" autocomplete="current-password" required />
+        </label>
+
+        <p class="error" id="auth-error" role="alert"></p>
+
+        <button type="submit" class="btn" id="auth-submit">Entrar</button>
+
+        <button type="button" class="toggle" id="auth-toggle">
+          ¿No tienes cuenta? <span>Regístrate</span>
+        </button>
+      </form>
+    </main>
+
+    <script>
+      const params = new URLSearchParams(location.search);
+      const next = params.get("next") || "/";
+      const form = document.getElementById("auth-form");
+      const errEl = document.getElementById("auth-error");
+      const titleEl = document.getElementById("auth-title");
+      const hintEl = document.getElementById("auth-hint");
+      const submitBtn = document.getElementById("auth-submit");
+      const toggle = document.getElementById("auth-toggle");
+      let mode = "login"; // or "signup"
+
+      // Already logged in? Skip the form.
+      fetch("/api/auth/me").then((r) => r.json()).then((u) => { if (u) location.href = next; }).catch(() => {});
+
+      function setMode(m) {
+        mode = m;
+        const login = m === "login";
+        titleEl.textContent = login ? "Iniciar sesión" : "Crear cuenta";
+        hintEl.textContent = login ? "Entra con tu apodo y clave." : "Elige un apodo y una clave (mínimo 4 caracteres).";
+        submitBtn.textContent = login ? "Entrar" : "Crear cuenta";
+        toggle.innerHTML = login
+          ? '¿No tienes cuenta? <span>Regístrate</span>'
+          : '¿Ya tienes cuenta? <span>Inicia sesión</span>';
+        errEl.textContent = "";
+        form.querySelector('[name=password]').setAttribute("autocomplete", login ? "current-password" : "new-password");
+      }
+
+      toggle.addEventListener("click", () => setMode(mode === "login" ? "signup" : "login"));
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        errEl.textContent = "";
+        submitBtn.disabled = true;
+        const nickname = form.nickname.value.trim();
+        const password = form.password.value;
+        try {
+          const r = await fetch("/api/auth/" + mode, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ nickname, password }),
+          });
+          if (r.ok) { location.href = next; return; }
+          errEl.textContent = await r.text();
+        } catch {
+          errEl.textContent = "Error de red. Intenta de nuevo.";
+        } finally {
+          submitBtn.disabled = false;
+        }
+      });
+
+      setMode("login");
+    </script>
+
+    <style is:global>
+      :root {
+        --ink: #14213d; --paper: #f3f4f7; --card: #ffffff; --gold: #e8a33d;
+        --gold-deep: #c9821a; --line: #e3e6ec; --text: #1c2433; --muted: #5b6472;
+        --urgent: #d64533;
+        --font-display: "Archivo", system-ui, sans-serif;
+        --font-body: "Public Sans", system-ui, sans-serif;
+        --font-mono: "Space Mono", ui-monospace, monospace;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; min-height: 100vh; font-family: var(--font-body); color: var(--text);
+        background:
+          radial-gradient(1200px 600px at 50% -10%, rgba(232,163,61,0.12), transparent 60%),
+          var(--ink);
+        display: flex; align-items: center; justify-content: center; padding: 24px;
+      }
+      .wrap { width: min(420px, 100%); position: relative; }
+      .back {
+        display: inline-block; margin-bottom: 18px; color: rgba(231,235,243,0.75);
+        text-decoration: none; font-size: 13px; font-family: var(--font-mono);
+      }
+      .back:hover { color: #fff; }
+      .brand { text-align: center; margin-bottom: 22px; color: #e7ebf3; }
+      .eyebrow {
+        font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em;
+        text-transform: uppercase; color: var(--gold); margin: 0 0 6px;
+      }
+      .wordmark { font-family: var(--font-display); font-weight: 800; font-size: 30px; margin: 0; letter-spacing: -0.01em; }
+
+      .card {
+        background: var(--card); border-radius: 16px; padding: 28px 26px;
+        box-shadow: 0 24px 70px rgba(0,0,0,0.35); display: flex; flex-direction: column; gap: 12px;
+      }
+      .card h2 { font-family: var(--font-display); font-weight: 800; font-size: 22px; color: var(--ink); margin: 0; }
+      .hint { font-size: 13px; color: var(--muted); margin: -4px 0 6px; }
+      label {
+        display: flex; flex-direction: column; gap: 5px;
+        font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.06em;
+        text-transform: uppercase; color: var(--muted);
+      }
+      input {
+        font-family: var(--font-body); font-size: 15px; padding: 11px 13px;
+        border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--text);
+      }
+      input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232,163,61,0.18); }
+      .error { color: var(--urgent); font-size: 13px; min-height: 18px; margin: 0; }
+      .error:empty { min-height: 0; }
+      .btn {
+        margin-top: 4px; padding: 12px 16px; border: none; border-radius: 10px;
+        background: var(--gold); color: #14213d; font-family: var(--font-display);
+        font-weight: 700; font-size: 15px; cursor: pointer; transition: filter 0.15s;
+      }
+      .btn:hover { filter: brightness(0.96); }
+      .btn:disabled { opacity: 0.6; cursor: default; }
+      .toggle {
+        background: none; border: none; color: var(--muted); font-size: 13px;
+        cursor: pointer; padding: 6px 0 0; text-align: center;
+      }
+      .toggle span { color: var(--gold-deep); font-weight: 700; }
+      .toggle:hover span { text-decoration: underline; }
+    </style>
+  </body>
+</html>

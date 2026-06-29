@@ -1,12 +1,11 @@
 ---
 // AID-09: hidden admin CRUD. On-demand (not prerendered), at an unguessable
-// URL, guarded by ADMIN_TOKEN on the API. NOT linked anywhere in the site.
+// URL, guarded by session-cookie login (admin role). NOT linked anywhere in the site.
 export const prerender = false;
 
 import { getEntries, dbAvailable } from "../../lib/db";
 
-const token = process.env.ADMIN_TOKEN ?? "";
-const ready = dbAvailable() && !!token;
+const ready = dbAvailable();
 const entries = ready ? await getEntries() : [];
 ---
 
@@ -51,13 +50,20 @@ const entries = ready ? await getEntries() : [];
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
         Auditoría
       </button>
+      <button class="tab" type="button" data-view="pendientes">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Pendientes <span id="pend-count" class="tab-badge" hidden>0</span>
+      </button>
+      <button class="tab" type="button" data-view="usuarios">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 .01M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
+        Usuarios
+      </button>
     </nav>
 
     {
       !ready && (
         <p class="nodb">
-          La base de datos no está configurada (falta <code>DATABASE_URL</code> o{" "}
-          <code>ADMIN_TOKEN</code>). Configúralas para administrar registros.
+          La base de datos no está configurada (falta <code>DATABASE_URL</code>). Configúrala para administrar registros.
         </p>
       )
     }
@@ -169,20 +175,115 @@ const entries = ready ? await getEntries() : [];
     </section>
 
     <section id="view-auditoria" class="view">
-      <div class="view-tools">
-        <p class="audit-note">Quién guardó qué y desde dónde (IP, país, navegador). No hay cuentas de usuario, así que el origen identifica la sesión.</p>
-        <button type="button" id="audit-refresh" class="btn ghost">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5" /></svg>
-          Actualizar
-        </button>
+      <div class="reg-layout">
+        <aside class="sidebar">
+          <div class="sidebar-head">
+            <h2>Filtros</h2>
+            <button type="button" id="aud-clear" class="btn ghost">Limpiar</button>
+          </div>
+          <div class="filters">
+            <label>Búsqueda <input type="search" id="aud-q" placeholder="Registro, IP, país…" /></label>
+            <label>Acción
+              <select id="aud-action"><option value="">Todas</option><option value="create">Creó</option><option value="update">Editó</option><option value="delete">Borró</option></select>
+            </label>
+          </div>
+        </aside>
+        <div class="main-col">
+          <div class="view-tools">
+            <button type="button" class="btn ghost f-toggle" aria-expanded="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18l-7 8v5l-4 2v-7z" /></svg>
+              Filtros
+            </button>
+            <p class="audit-note">Quién guardó qué y desde dónde (IP, país, navegador).</p>
+            <span class="admin-count" id="aud-count"></span>
+            <button type="button" id="audit-refresh" class="btn ghost">Actualizar</button>
+          </div>
+          <div class="audit-wrap">
+            <table class="audit-table">
+              <thead>
+                <tr><th>Fecha</th><th>Acción</th><th>Registro</th><th>IP</th><th>País</th><th>Navegador</th></tr>
+              </thead>
+              <tbody id="audit-rows"><tr><td colspan="6">—</td></tr></tbody>
+            </table>
+          </div>
+          <nav class="pager" id="aud-pager" hidden>
+            <button type="button" id="aud-prev" class="btn ghost">Anterior</button>
+            <span id="aud-info"></span>
+            <button type="button" id="aud-next" class="btn ghost">Siguiente</button>
+          </nav>
+        </div>
       </div>
-      <div class="audit-wrap">
-        <table class="audit-table">
-          <thead>
-            <tr><th>Fecha</th><th>Acción</th><th>Registro</th><th>IP</th><th>País</th><th>Navegador</th></tr>
-          </thead>
-          <tbody id="audit-rows"><tr><td colspan="6">—</td></tr></tbody>
-        </table>
+    </section>
+
+    <section id="view-pendientes" class="view">
+      <div class="reg-layout">
+        <aside class="sidebar">
+          <div class="sidebar-head">
+            <h2>Filtros</h2>
+            <button type="button" id="pend-clear" class="btn ghost">Limpiar</button>
+          </div>
+          <div class="filters">
+            <label>Búsqueda <input type="search" id="pend-q" placeholder="Título, organización, de…" /></label>
+            <label>Tipo
+              <select id="pend-type"><option value="">Todos</option><option value="center">Centro</option><option value="professional">Profesional</option></select>
+            </label>
+            <label>Estado <select id="pend-state"><option value="">Todos</option></select></label>
+          </div>
+        </aside>
+        <div class="main-col">
+          <div class="view-tools">
+            <button type="button" class="btn ghost f-toggle" aria-expanded="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18l-7 8v5l-4 2v-7z" /></svg>
+              Filtros
+            </button>
+            <p class="audit-note">Sugerencias enviadas por usuarios. Toca una fila para revisarla; aprobar crea el registro.</p>
+            <span class="admin-count" id="pend-result"></span>
+            <button type="button" id="pend-refresh" class="btn ghost">Actualizar</button>
+          </div>
+          <div class="audit-wrap"><table class="audit-table">
+            <thead><tr><th>Fecha</th><th>De</th><th>Tipo</th><th>Título</th><th>Estado/Ciudad</th><th></th></tr></thead>
+            <tbody id="pend-rows"><tr><td colspan="6">—</td></tr></tbody>
+          </table></div>
+          <nav class="pager" id="pend-pager" hidden>
+            <button type="button" id="pend-prev" class="btn ghost">Anterior</button>
+            <span id="pend-info"></span>
+            <button type="button" id="pend-next" class="btn ghost">Siguiente</button>
+          </nav>
+        </div>
+      </div>
+    </section>
+    <section id="view-usuarios" class="view">
+      <div class="reg-layout">
+        <aside class="sidebar">
+          <div class="sidebar-head">
+            <h2>Filtros</h2>
+            <button type="button" id="usr-clear" class="btn ghost">Limpiar</button>
+          </div>
+          <div class="filters">
+            <label>Búsqueda <input type="search" id="usr-q" placeholder="Apodo…" /></label>
+            <label>Rol <select id="usr-role"><option value="">Todos</option><option value="admin">Admin</option><option value="user">Usuario</option></select></label>
+          </div>
+        </aside>
+        <div class="main-col">
+          <div class="view-tools">
+            <button type="button" class="btn ghost f-toggle" aria-expanded="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18l-7 8v5l-4 2v-7z" /></svg>
+              Filtros
+            </button>
+            <p class="audit-note">Cuentas registradas. Puedes nombrar o quitar administradores.</p>
+            <span class="admin-count" id="usr-count"></span>
+            <button type="button" id="users-refresh" class="btn ghost">Actualizar</button>
+          </div>
+          <div class="audit-wrap"><table class="audit-table">
+            <thead><tr><th>Apodo</th><th>Rol</th><th>Creado</th><th></th></tr></thead>
+            <tbody id="users-rows"><tr><td colspan="4">—</td></tr></tbody>
+          </table></div>
+          <nav class="pager" id="usr-pager" hidden>
+            <button type="button" id="usr-prev" class="btn ghost">Anterior</button>
+            <span id="usr-info"></span>
+            <button type="button" id="usr-next" class="btn ghost">Siguiente</button>
+          </nav>
+        </div>
       </div>
     </section>
 
@@ -263,18 +364,6 @@ const entries = ready ? await getEntries() : [];
     </dialog>
 
     <script is:inline define:vars={{ ENTRIES: entries }}>
-      // The repo is public, so the admin URL is discoverable. The token is NOT
-      // embedded in the page — the admin enters it once (kept in sessionStorage)
-      // and it only ever lives in Netlify env + the request header.
-      let TOKEN = sessionStorage.getItem("adminToken") || "";
-      function ensureToken() {
-        if (!TOKEN) {
-          TOKEN = (prompt("Token de administración:") || "").trim();
-          if (TOKEN) sessionStorage.setItem("adminToken", TOKEN);
-        }
-        return TOKEN;
-      }
-      function clearToken() { TOKEN = ""; sessionStorage.removeItem("adminToken"); }
       const slug = (s) => (s || "").toLowerCase().normalize("NFD")
         .replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "").slice(0, 40);
@@ -284,6 +373,7 @@ const entries = ready ? await getEntries() : [];
       const statusEl = document.getElementById("form-status");
       let mode = "create";
       let editingName = null;
+      let pendingId = null; // when set, the editor is reviewing a pending submission
 
       const setv = (n, v) => { const el = form.elements[n]; if (el) el.value = v ?? ""; };
 
@@ -397,6 +487,7 @@ const entries = ready ? await getEntries() : [];
       function openForm(entry) {
         form.reset();
         statusEl.textContent = "";
+        pendingId = null;
         if (entry) {
           mode = "edit"; editingName = entry.filename;
           document.getElementById("form-title").textContent = "Editar: " + (entry.title || entry.filename);
@@ -418,6 +509,14 @@ const entries = ready ? await getEntries() : [];
         setRepeats(entry);
         dlg.showModal();
         syncMap();
+      }
+
+      // Review a pending submission in the editor; saving approves & publishes it.
+      function openPending(sub) {
+        openForm(sub.payload || {});
+        pendingId = sub.id;
+        const t = (sub.payload && sub.payload.title) || "sin título";
+        document.getElementById("form-title").textContent = "Revisar sugerencia: " + t + " — al guardar se aprueba y publica";
       }
 
       function collect() {
@@ -448,6 +547,23 @@ const entries = ready ? await getEntries() : [];
       }
 
       async function save() {
+        // Pending-review mode: approve & publish with the (possibly edited) content.
+        if (pendingId) {
+          statusEl.textContent = "Aprobando…";
+          let p;
+          try { p = collect(); } catch (err) { statusEl.textContent = "No se pudieron leer los datos del formulario."; return; }
+          if (!p.title) { statusEl.textContent = "Falta el título."; return; }
+          try {
+            const r = await fetch("/api/admin/submissions/" + encodeURIComponent(pendingId) + "/approve", {
+              method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(p),
+            });
+            if (r.status === 401) { alert("No autorizado. Recarga la página."); location.reload(); return; }
+            if (!r.ok) { statusEl.textContent = "Error: " + (await r.text()); return; }
+            dlg.close(); pendingId = null;
+            await loadPending(); await refresh();
+          } catch (err) { statusEl.textContent = "Error de red"; }
+          return;
+        }
         statusEl.textContent = "Guardando…";
         let payload;
         try { payload = collect(); } catch (err) { statusEl.textContent = "No se pudieron leer los datos del formulario."; return; }
@@ -459,10 +575,10 @@ const entries = ready ? await getEntries() : [];
         try {
           const r = await fetch(url, {
             method: mode === "create" ? "POST" : "PATCH",
-            headers: { "content-type": "application/json", "x-admin-token": TOKEN },
+            headers: { "content-type": "application/json" },
             body: JSON.stringify(payload),
           });
-          if (r.status === 401) { clearToken(); alert("Token inválido. Recarga la página."); location.reload(); return; }
+          if (r.status === 401) { alert("No autorizado. Recarga la página."); location.reload(); return; }
           if (!r.ok) { statusEl.textContent = "Error: " + (await r.text()); return; }
           dlg.close();
           await refresh(); // re-renderiza sin recargar el navegador
@@ -472,9 +588,9 @@ const entries = ready ? await getEntries() : [];
       async function del(filename) {
         if (!confirm("¿Borrar «" + filename + "»? Esto afecta la base en vivo.")) return;
         const r = await fetch("/api/admin/points/" + encodeURIComponent(filename), {
-          method: "DELETE", headers: { "x-admin-token": TOKEN },
+          method: "DELETE",
         });
-        if (r.status === 401) { clearToken(); alert("Token inválido. Recarga la página."); location.reload(); return; }
+        if (r.status === 401) { alert("No autorizado. Recarga la página."); location.reload(); return; }
         if (r.ok) await refresh(); else alert("Error: " + (await r.text()));
       }
 
@@ -510,27 +626,59 @@ const entries = ready ? await getEntries() : [];
       // ---- Vistas (navbar): Registros / Auditoría ----
       const ACT = { create: "Creó", update: "Editó", delete: "Borró" };
       let auditLoaded = false;
+      let auditData = [];
+      function fillFilter(sel, values) {
+        const prev = sel.value;
+        const first = sel.options[0];
+        sel.innerHTML = "";
+        sel.appendChild(first);
+        for (const v of values) { const o = document.createElement("option"); o.value = v; o.textContent = v; sel.appendChild(o); }
+        sel.value = values.indexOf(prev) >= 0 ? prev : "";
+      }
+      // Paginación compartida (10/pág) para las tres vistas, como Registros.
+      const ADMIN_PER_PAGE = 10;
+      const pgState = { aud: 0, pend: 0, usr: 0 };
+      function pageRows(key, rows) {
+        const pages = Math.max(1, Math.ceil(rows.length / ADMIN_PER_PAGE));
+        pgState[key] = Math.min(Math.max(pgState[key], 0), pages - 1);
+        document.getElementById(key + "-pager").hidden = rows.length <= ADMIN_PER_PAGE;
+        document.getElementById(key + "-info").textContent = "Página " + (pgState[key] + 1) + " de " + pages;
+        document.getElementById(key + "-prev").disabled = pgState[key] === 0;
+        document.getElementById(key + "-next").disabled = pgState[key] >= pages - 1;
+        return rows.slice(pgState[key] * ADMIN_PER_PAGE, pgState[key] * ADMIN_PER_PAGE + ADMIN_PER_PAGE);
+      }
       async function loadAudit() {
         const tb = document.getElementById("audit-rows");
         tb.innerHTML = '<tr><td colspan="6">Cargando…</td></tr>';
         try {
-          const r = await fetch("/api/admin/audit", { headers: { "x-admin-token": TOKEN } });
+          const r = await fetch("/api/admin/audit");
           if (!r.ok) { tb.innerHTML = '<tr><td colspan="6">No se pudo cargar.</td></tr>'; return; }
-          const rows = await r.json();
-          if (!rows.length) { tb.innerHTML = '<tr><td colspan="6">Sin movimientos de auditoría todavía.</td></tr>'; return; }
-          tb.innerHTML = rows.map((a) => {
-            const when = new Date(a.createdAt).toLocaleString("es-VE");
-            const ua = (a.userAgent || "").replace(/\s*\(.*$/, "").slice(0, 40);
-            const exists = !!byName[a.filename];
-            const cls = exists ? "linked" : "gone";
-            const tip = exists ? "Abrir para editar" : "Este registro ya no existe";
-            return `<tr data-fn="${esc(a.filename)}" class="${cls}" title="${tip}"><td>${esc(when)}</td>` +
-              `<td><span class="tag a-${esc(a.action)}">${ACT[a.action] || esc(a.action)}</span></td>` +
-              `<td>${esc(a.title || a.filename)}</td><td>${esc(a.ip || "—")}</td>` +
-              `<td>${esc(a.country || "—")}</td><td>${esc(ua || "—")}</td></tr>`;
-          }).join("");
+          auditData = await r.json();
           auditLoaded = true;
+          renderAudit();
         } catch { tb.innerHTML = '<tr><td colspan="6">Error de red.</td></tr>'; }
+      }
+      function renderAudit() {
+        const tb = document.getElementById("audit-rows");
+        const q = (document.getElementById("aud-q").value || "").trim().toLowerCase();
+        const act = document.getElementById("aud-action").value;
+        const rows = auditData.filter((a) =>
+          (!act || a.action === act) &&
+          (!q || [a.title, a.filename, a.ip, a.country].filter(Boolean).join(" ").toLowerCase().includes(q)));
+        document.getElementById("aud-count").textContent = rows.length + (rows.length === 1 ? " registro" : " registros");
+        if (!auditData.length) { tb.innerHTML = '<tr><td colspan="6">Sin movimientos de auditoría todavía.</td></tr>'; document.getElementById("aud-pager").hidden = true; return; }
+        if (!rows.length) { tb.innerHTML = '<tr><td colspan="6">Sin resultados para el filtro.</td></tr>'; document.getElementById("aud-pager").hidden = true; return; }
+        tb.innerHTML = pageRows("aud", rows).map((a) => {
+          const when = new Date(a.createdAt).toLocaleString("es-VE");
+          const ua = (a.userAgent || "").replace(/\s*\(.*$/, "").slice(0, 40);
+          const exists = !!byName[a.filename];
+          const cls = exists ? "linked" : "gone";
+          const tip = exists ? "Abrir para editar" : "Este registro ya no existe";
+          return `<tr data-fn="${esc(a.filename)}" class="${cls}" title="${tip}"><td>${esc(when)}</td>` +
+            `<td><span class="tag a-${esc(a.action)}">${ACT[a.action] || esc(a.action)}</span></td>` +
+            `<td>${esc(a.title || a.filename)}</td><td>${esc(a.ip || "—")}</td>` +
+            `<td>${esc(a.country || "—")}</td><td>${esc(ua || "—")}</td></tr>`;
+        }).join("");
       }
       document.querySelectorAll(".tab").forEach((t) => {
         t.addEventListener("click", () => {
@@ -538,6 +686,8 @@ const entries = ready ? await getEntries() : [];
           document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("active", x === t));
           document.querySelectorAll(".view").forEach((p) => p.classList.toggle("active", p.id === "view-" + v));
           if (v === "auditoria" && !auditLoaded) loadAudit();
+          if (v === "pendientes") loadPending();
+          if (v === "usuarios") loadUsers();
         });
       });
       document.getElementById("audit-refresh").addEventListener("click", loadAudit);
@@ -645,35 +795,178 @@ const entries = ready ? await getEntries() : [];
       // Refresco en vivo: re-consulta la API y re-renderiza (sin recargar).
       async function refresh() {
         try {
-          const r = await fetch("/api/admin/points", { headers: { "x-admin-token": TOKEN } });
+          const r = await fetch("/api/admin/points");
           if (!r.ok) return;
           DATA = await r.json();
           byName = Object.fromEntries(DATA.map((e) => [e.filename, e]));
           rebuildOptions();
           render();
           auditLoaded = false; // hubo un cambio: recargar la auditoría al abrirla
+          loadPending();
         } catch {}
       }
 
       rebuildOptions();
       render();
 
-      // Pide el token al ENTRAR a la página (una sola vez) y lo valida contra la
-      // API. Una vez validado, guardar/borrar no vuelven a pedirlo.
-      (async function gate() {
-        for (;;) {
-          if (!ensureToken()) {
-            document.body.innerHTML =
-              '<p style="padding:40px;font-family:system-ui">Token requerido. Recarga la página para reintentar.</p>';
-            return;
+      let pendData = [];
+      async function loadPending() {
+        const tb = document.getElementById("pend-rows");
+        tb.innerHTML = '<tr><td colspan="6">Cargando…</td></tr>';
+        try {
+          pendData = await (await fetch("/api/admin/submissions?status=pending")).json();
+          const badge = document.getElementById("pend-count");
+          badge.textContent = pendData.length; badge.hidden = pendData.length === 0;
+          const states = [...new Set(pendData.map((s) => s.payload?.location?.state).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+          fillFilter(document.getElementById("pend-state"), states);
+          renderPending();
+        } catch { tb.innerHTML = '<tr><td colspan="6">Error.</td></tr>'; }
+      }
+      function renderPending() {
+        const tb = document.getElementById("pend-rows");
+        const q = (document.getElementById("pend-q").value || "").trim().toLowerCase();
+        const type = document.getElementById("pend-type").value;
+        const st = document.getElementById("pend-state").value;
+        const rows = pendData.filter((s) => {
+          const p = s.payload || {};
+          if (type && p.category !== type) return false;
+          if (st && (p.location?.state || "") !== st) return false;
+          if (q) {
+            const hay = [p.title, p.organization, s.submittedBy?.nickname, p.location?.state, p.location?.city].filter(Boolean).join(" ").toLowerCase();
+            if (!hay.includes(q)) return false;
           }
-          try {
-            const r = await fetch("/api/admin/points", { headers: { "x-admin-token": TOKEN } });
-            if (r.ok) return;
-          } catch {}
-          clearToken();
-          alert("Token inválido.");
+          return true;
+        });
+        document.getElementById("pend-result").textContent = rows.length + (rows.length === 1 ? " pendiente" : " pendientes");
+        if (!pendData.length) { tb.innerHTML = '<tr><td colspan="6">Sin pendientes.</td></tr>'; document.getElementById("pend-pager").hidden = true; return; }
+        if (!rows.length) { tb.innerHTML = '<tr><td colspan="6">Sin resultados para el filtro.</td></tr>'; document.getElementById("pend-pager").hidden = true; return; }
+        tb.innerHTML = pageRows("pend", rows).map((s) => {
+          const p = s.payload || {};
+          const when = new Date(s.createdAt).toLocaleString("es-VE");
+          const cat = p.category === "professional" ? "Profesional" : "Centro";
+          const loc = [p.location?.state, p.location?.city].filter(Boolean).join(" / ") || "—";
+          return `<tr data-id="${esc(s.id)}"><td>${esc(when)}</td><td>${esc(s.submittedBy?.nickname || "Anónimo")}</td>`
+            + `<td>${cat}</td><td>${esc(p.title || "—")}</td><td>${esc(loc)}</td>`
+            + `<td class="actions"><button class="icon-btn approve" data-id="${esc(s.id)}" title="Aprobar">✓</button>`
+            + `<button class="icon-btn danger reject" data-id="${esc(s.id)}" title="Rechazar">✕</button></td></tr>`;
+        }).join("");
+      }
+      document.getElementById("pend-rows").addEventListener("click", async (ev) => {
+        const b = ev.target.closest("button");
+        if (b) {
+          const id = b.dataset.id;
+          if (b.classList.contains("approve")) {
+            const r = await fetch(`/api/admin/submissions/${id}/approve`, { method: "POST" });
+            if (!r.ok) { alert("Error al aprobar: " + (await r.text())); return; }
+            await loadPending(); await refresh();
+          } else if (b.classList.contains("reject")) {
+            if (!confirm("¿Rechazar esta sugerencia?")) return;
+            const r = await fetch(`/api/admin/submissions/${id}/reject`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+            if (!r.ok) { alert("Error al rechazar: " + (await r.text())); return; }
+            await loadPending();
+          }
+          return;
         }
+        // Click on the row (not a button) → open the editor to review/edit before approving.
+        const tr = ev.target.closest("tr[data-id]");
+        if (!tr) return;
+        const sub = pendData.find((s) => s.id === tr.dataset.id);
+        if (sub) openPending(sub);
+      });
+      document.getElementById("pend-refresh").addEventListener("click", loadPending);
+
+      let ME = null; // current admin (set by gate) — used to hide self-demotion
+      const SUPREME_NICK = "greg"; // el administrador principal — nadie puede degradarlo
+      const SHIELD_ADD = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7-7 9-4-2-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg>';
+      const SHIELD_REMOVE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7-7 9-4-2-7-4.5-7-9V6z"/><path d="M9.5 12h5"/></svg>';
+      let usersData = [];
+      async function loadUsers() {
+        const tb = document.getElementById("users-rows");
+        tb.innerHTML = '<tr><td colspan="4">Cargando…</td></tr>';
+        try { usersData = await (await fetch("/api/admin/users")).json(); renderUsers(); }
+        catch { tb.innerHTML = '<tr><td colspan="4">Error.</td></tr>'; }
+      }
+      function renderUsers() {
+        const tb = document.getElementById("users-rows");
+        const q = (document.getElementById("usr-q").value || "").trim().toLowerCase();
+        const role = document.getElementById("usr-role").value;
+        const rows = usersData.filter((u) => (!role || u.role === role) && (!q || u.nickname.toLowerCase().includes(q)));
+        document.getElementById("usr-count").textContent = rows.length + (rows.length === 1 ? " usuario" : " usuarios");
+        if (!usersData.length) { tb.innerHTML = '<tr><td colspan="4">Sin usuarios.</td></tr>'; document.getElementById("usr-pager").hidden = true; return; }
+        if (!rows.length) { tb.innerHTML = '<tr><td colspan="4">Sin resultados para el filtro.</td></tr>'; document.getElementById("usr-pager").hidden = true; return; }
+        tb.innerHTML = pageRows("usr", rows).map((u) => {
+          const when = new Date(u.createdAt).toLocaleDateString("es-VE");
+          const isAdmin = u.role === "admin";
+          const isSupreme = u.nickname === SUPREME_NICK;
+          const isSelf = ME && u.nickname === ME.nickname;
+          let action;
+          if (!isAdmin) {
+            action = `<button class="icon-btn role-btn" data-id="${esc(u.id)}" data-role="admin" title="Hacer admin" aria-label="Hacer admin">${SHIELD_ADD}</button>`;
+          } else if (isSupreme || isSelf) {
+            action = `<span class="role-note" title="${isSupreme ? "Administrador principal" : "Tu propia cuenta"}">—</span>`;
+          } else {
+            action = `<button class="icon-btn danger role-btn" data-id="${esc(u.id)}" data-role="user" title="Quitar admin" aria-label="Quitar admin">${SHIELD_REMOVE}</button>`;
+          }
+          const badge = isSupreme ? ' <span class="badge-supreme">principal</span>' : "";
+          return `<tr><td>${esc(u.nickname)}${badge}</td><td>${isAdmin ? "Admin" : "Usuario"}</td><td>${esc(when)}</td><td class="u-action">${action}</td></tr>`;
+        }).join("");
+      }
+      document.getElementById("users-rows").addEventListener("click", async (ev) => {
+        const b = ev.target.closest(".role-btn"); if (!b) return;
+        const r = await fetch(`/api/admin/users/${b.dataset.id}/role`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ role: b.dataset.role }) });
+        if (!r.ok) alert(await r.text());
+        await loadUsers();
+      });
+      document.getElementById("users-refresh").addEventListener("click", loadUsers);
+
+      // Filtros (estilo Registros), reinicio de página, paginador y ocultar sidebar.
+      const onFilter = (key, render) => { pgState[key] = 0; render(); };
+      ["aud-q", "aud-action"].forEach((id) => document.getElementById(id).addEventListener("input", () => onFilter("aud", renderAudit)));
+      ["pend-q", "pend-type", "pend-state"].forEach((id) => document.getElementById(id).addEventListener("input", () => onFilter("pend", renderPending)));
+      ["usr-q", "usr-role"].forEach((id) => document.getElementById(id).addEventListener("input", () => onFilter("usr", renderUsers)));
+      const clearVals = (ids) => ids.forEach((id) => { document.getElementById(id).value = ""; });
+      document.getElementById("aud-clear").addEventListener("click", () => { clearVals(["aud-q", "aud-action"]); onFilter("aud", renderAudit); });
+      document.getElementById("pend-clear").addEventListener("click", () => { clearVals(["pend-q", "pend-type", "pend-state"]); onFilter("pend", renderPending); });
+      document.getElementById("usr-clear").addEventListener("click", () => { clearVals(["usr-q", "usr-role"]); onFilter("usr", renderUsers); });
+      const pagerStep = (key, render, delta) => { pgState[key] += delta; render(); };
+      document.getElementById("aud-prev").addEventListener("click", () => pagerStep("aud", renderAudit, -1));
+      document.getElementById("aud-next").addEventListener("click", () => pagerStep("aud", renderAudit, 1));
+      document.getElementById("pend-prev").addEventListener("click", () => pagerStep("pend", renderPending, -1));
+      document.getElementById("pend-next").addEventListener("click", () => pagerStep("pend", renderPending, 1));
+      document.getElementById("usr-prev").addEventListener("click", () => pagerStep("usr", renderUsers, -1));
+      document.getElementById("usr-next").addEventListener("click", () => pagerStep("usr", renderUsers, 1));
+      document.querySelectorAll(".f-toggle").forEach((btn) => btn.addEventListener("click", () => {
+        const layout = btn.closest(".reg-layout");
+        const hidden = layout.classList.toggle("filters-hidden");
+        btn.setAttribute("aria-expanded", String(!hidden));
+      }));
+
+      (async function gate() {
+        let me = null;
+        try { me = await (await fetch("/api/auth/me")).json(); } catch {}
+        if (!me) {
+          document.body.innerHTML = '<form id="lg" style="max-width:280px;margin:80px auto;font-family:system-ui;display:flex;flex-direction:column;gap:10px">'
+            + '<h2>Admin · iniciar sesión</h2>'
+            + '<input name="nickname" placeholder="Apodo" required>'
+            + '<input name="password" type="password" placeholder="Clave" required>'
+            + '<p id="lgerr" style="color:#d64533;min-height:16px;margin:0"></p>'
+            + '<button>Entrar</button></form>';
+          document.getElementById("lg").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const f = e.target;
+            const r = await fetch("/api/auth/login", { method: "POST", headers: { "content-type": "application/json" },
+              body: JSON.stringify({ nickname: f.nickname.value.trim(), password: f.password.value }) });
+            if (r.ok) location.reload(); else document.getElementById("lgerr").textContent = await r.text();
+          });
+          return;
+        }
+        if (me.role !== "admin") {
+          document.body.innerHTML = '<p style="padding:40px;font-family:system-ui">No autorizado. Tu cuenta no es de administrador.</p>';
+          return;
+        }
+        // admin confirmed → load data
+        ME = me;
+        await refresh();
       })();
     </script>
 
@@ -815,17 +1108,40 @@ const entries = ready ? await getEntries() : [];
       .view-tools .count { margin: 0; }
 
       .audit-note { font-size: 12.5px; color: var(--muted); margin: 0; line-height: 1.45; flex: 1; min-width: 220px; }
-      .audit-wrap { margin: 0 20px 40px; max-height: 68vh; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
-      .audit-table { width: 100%; border-collapse: collapse; }
-      .audit-table th { position: sticky; top: 0; background: var(--ink); color: #fff; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.05em; text-transform: uppercase; text-align: left; padding: 9px 10px; }
-      .audit-table td { font-size: 12.5px; padding: 8px 10px; border-bottom: 1px solid #eef0f4; white-space: nowrap; color: var(--text); }
-      .audit-table td:nth-child(3) { white-space: normal; }
+      /* Filtros en sidebar (reutiliza .reg-layout / .sidebar / .filters de Registros). */
+      .admin-count { align-self: center; font-family: var(--font-mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+      .pager span { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+      #pend-rows tr { cursor: pointer; }
+
+      /* Tablas con el mismo aspecto que Registros, a ras dentro de la columna principal. */
+      .audit-wrap { margin: 0 20px 40px; max-height: 68vh; overflow: auto; border: 1px solid var(--line); border-radius: 12px; }
+      .main-col .audit-wrap { margin: 0 0 16px; }
+      .audit-table { width: 100%; border-collapse: collapse; background: var(--card); }
+      .audit-table th { position: sticky; top: 0; background: var(--ink); color: #fff; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; text-align: left; padding: 11px 14px; white-space: nowrap; }
+      .audit-table td { font-size: 14px; padding: 11px 14px; border-bottom: 1px solid #eef0f4; white-space: nowrap; color: var(--text); }
+      /* Columns hug content; the last column absorbs the slack so the data columns
+         sit close together (like Registros). Long free-text columns wrap, capped. */
+      .audit-table th:last-child, .audit-table td:last-child { width: 100%; }
+      #view-pendientes .audit-table td:nth-child(4),
+      #view-auditoria .audit-table td:nth-child(3) { white-space: normal; max-width: 340px; overflow-wrap: anywhere; }
+      .audit-table tbody tr:last-child td { border-bottom: none; }
+      .audit-table tbody tr:hover td { background: #fafbfc; }
       .audit-table tbody tr.linked { cursor: pointer; }
       .audit-table tbody tr.linked:hover td { background: #f6f8fb; }
       .audit-table tbody tr.gone td { color: #9aa3b0; }
+      .u-action { text-align: right; }
+      .u-action .icon-btn { margin-left: 0; }
+      .role-note { color: var(--muted); display: inline-block; width: 32px; text-align: center; }
+      .badge-supreme {
+        font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.04em; text-transform: uppercase;
+        color: var(--gold-deep); border: 1px solid #f0dcb4; background: #fbf3e3;
+        padding: 1px 6px; border-radius: 20px; margin-left: 6px;
+      }
       .a-create { color: #2f7d32; border-color: #cde8cf; background: #eef6ee; }
       .a-update { color: var(--gold-deep); border-color: #f0dcb4; background: #fbf3e3; }
       .a-delete { color: var(--urgent); border-color: #f5cccc; background: #fef2f2; }
+      .tab-badge { background: var(--gold); color: #14213d; border-radius: 20px; padding: 1px 7px; font-size: 11px; font-weight: 700; margin-left: 4px; }
+      .audit-table .approve { color: #2f7d32; } .audit-table .reject { color: var(--urgent); }
 
       @media (max-width: 640px) {
         /* Encabezado y barras: menos aire lateral en móvil */

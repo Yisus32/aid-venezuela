@@ -205,6 +205,7 @@ export interface AuditEntry {
   filename: string;
   title?: string | null;
   category?: string | null;
+  actorNickname?: string | null;
   ip?: string | null;
   country?: string | null;
   userAgent?: string | null;
@@ -219,6 +220,7 @@ export async function logAudit(data: AuditEntry): Promise<void> {
         filename: data.filename,
         title: data.title ?? null,
         category: data.category ?? null,
+        actorNickname: data.actorNickname ?? null,
         ip: data.ip ?? null,
         country: data.country ?? null,
         userAgent: data.userAgent ?? null,

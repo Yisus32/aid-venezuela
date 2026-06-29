@@ -165,7 +165,10 @@ const OG_IMAGE = `${SITE}/og-image.png`;
           >
             <img src="/branding/venezuela-flag.svg" alt="Bandera de Venezuela" class="brand-ico" />
             <img src="/branding/talos-favicon.svg" alt="Talos Software" class="brand-ico" />
-            <span>Powered by Talos Software</span>
+            <span class="brand-text">
+              Powered by Talos Software
+              <span class="brand-url">www.talosware.com.ve</span>
+            </span>
           </a>
         </div>
       </aside>
@@ -483,6 +486,9 @@ const OG_IMAGE = `${SITE}/og-image.png`;
         transition: color 0.15s;
       }
       .branding:hover { color: #fff; }
+      .brand-text { display: flex; flex-direction: column; line-height: 1.3; }
+      .brand-url { color: var(--gold); }
+      .branding:hover .brand-url { color: var(--gold); }
       .brand-ico {
         height: 18px;
         width: auto;

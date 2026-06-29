@@ -53,13 +53,23 @@ export async function countAdmins(): Promise<number> {
   return prisma.user.count({ where: { role: "admin" } });
 }
 
-export async function createSubmission(payload: any, submittedById: string) {
+export async function createSubmission(payload: any, submittedById: string | null = null) {
   const prisma = getPrisma();
   if (!prisma) throw new Error("DB not configured");
   return prisma.submission.create({
     data: { payload, submittedById },
     select: { id: true },
   });
+}
+
+export async function getUserById(id: string): Promise<SafeUser | null> {
+  const prisma = getPrisma();
+  if (!prisma) return null;
+  const u = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, nickname: true, role: true },
+  });
+  return (u as SafeUser) ?? null;
 }
 
 export async function listSubmissions(status?: string) {

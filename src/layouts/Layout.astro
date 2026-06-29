@@ -65,6 +65,17 @@ const OG_IMAGE = `${SITE}/og-image.png`;
         <span class="mobile-word">Ayuda Venezuela</span>
       </header>
       <div class="rail-overlay" id="rail-overlay" hidden></div>
+
+      <!-- AID-013: account button, pinned top-right -->
+      <div id="auth-panel" class="auth-panel" data-state="loading">
+        <a id="auth-out" href="/login" class="auth-btn" hidden>Iniciar sesión</a>
+        <div id="auth-me" class="auth-me" hidden>
+          <span class="auth-greet">Hola, <strong id="auth-nick"></strong></span>
+          <a id="auth-admin" href="/admin-db-9760b48605/" class="auth-btn" hidden>Moderación</a>
+          <button type="button" id="btn-logout" class="auth-btn ghost">Cerrar sesión</button>
+        </div>
+      </div>
+
       <aside class="rail" id="rail">
         <div class="brand">
           <p class="eyebrow">Respuesta al terremoto</p>
@@ -142,24 +153,6 @@ const OG_IMAGE = `${SITE}/og-image.png`;
             <span class="tab-label">Reporta</span>
           </button>
         </nav>
-
-        <div id="auth-panel" class="auth-panel" data-state="loading">
-          <!-- logged-out -->
-          <form id="auth-form" class="auth-form" hidden>
-            <h3 id="auth-title">Iniciar sesión</h3>
-            <input name="nickname" placeholder="Apodo" autocomplete="username" required />
-            <input name="password" type="password" placeholder="Clave" autocomplete="current-password" required />
-            <p class="auth-error" id="auth-error" role="alert"></p>
-            <button type="submit" class="btn-auth" id="auth-submit">Entrar</button>
-            <button type="button" class="auth-toggle" id="auth-toggle">¿No tienes cuenta? Regístrate</button>
-          </form>
-          <!-- logged-in -->
-          <div id="auth-me" class="auth-me" hidden>
-            <span>Hola, <strong id="auth-nick"></strong></span>
-            <button type="button" id="btn-suggest" class="btn-auth">Sugerir centro / profesional</button>
-            <button type="button" id="btn-logout" class="auth-toggle">Cerrar sesión</button>
-          </div>
-        </div>
 
         <div class="rail-foot">
           <p class="solidarity">#FuerzaVenezuela</p>
@@ -251,54 +244,32 @@ const OG_IMAGE = `${SITE}/og-image.png`;
         <input type="hidden" name="lat" /><input type="hidden" name="lng" />
         <p class="submit-status" id="submit-status"></p>
         <menu>
-          <button type="button" id="submit-cancel">Cancelar</button>
-          <button type="button" id="submit-send" class="btn-auth">Enviar para revisión</button>
+          <button type="button" id="submit-cancel" class="auth-btn ghost">Cancelar</button>
+          <button type="button" id="submit-send" class="auth-btn">Enviar para revisión</button>
         </menu>
       </form>
     </dialog>
 
     <script>
       const panel = document.getElementById("auth-panel");
-      const form = document.getElementById("auth-form");
+      const loggedOut = document.getElementById("auth-out");
       const meBox = document.getElementById("auth-me");
-      const errEl = document.getElementById("auth-error");
-      const titleEl = document.getElementById("auth-title");
-      const submitBtn = document.getElementById("auth-submit");
-      const toggle = document.getElementById("auth-toggle");
-      let mode = "login"; // or "signup"
+      const adminLink = document.getElementById("auth-admin");
+      let currentUser = null;
 
-      function setMode(m) {
-        mode = m;
-        titleEl.textContent = m === "login" ? "Iniciar sesión" : "Crear cuenta";
-        submitBtn.textContent = m === "login" ? "Entrar" : "Crear cuenta";
-        toggle.textContent = m === "login" ? "¿No tienes cuenta? Regístrate" : "¿Ya tienes cuenta? Inicia sesión";
-        errEl.textContent = "";
-        form.querySelector('[name=password]').setAttribute("autocomplete", m === "login" ? "current-password" : "new-password");
-      }
       function render(user) {
+        currentUser = user;
         panel.dataset.state = user ? "in" : "out";
-        form.hidden = !!user; meBox.hidden = !user;
+        loggedOut.hidden = !!user; meBox.hidden = !user;
+        adminLink.hidden = !(user && user.role === "admin");
         if (user) document.getElementById("auth-nick").textContent = user.nickname;
       }
       async function refresh() {
         try { render(await (await fetch("/api/auth/me")).json()); }
         catch { render(null); }
       }
-      toggle.addEventListener("click", () => setMode(mode === "login" ? "signup" : "login"));
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        errEl.textContent = "";
-        const nickname = form.nickname.value.trim();
-        const password = form.password.value;
-        const r = await fetch("/api/auth/" + (mode === "login" ? "login" : "signup"), {
-          method: "POST", headers: { "content-type": "application/json" },
-          body: JSON.stringify({ nickname, password }),
-        });
-        if (r.ok) { form.reset(); await refresh(); }
-        else errEl.textContent = await r.text();
-      });
       document.getElementById("btn-logout").addEventListener("click", async () => {
-        await fetch("/api/auth/logout", { method: "POST" }); render(null); setMode("login");
+        await fetch("/api/auth/logout", { method: "POST" }); render(null);
       });
 
       // Submission dialog
@@ -315,7 +286,8 @@ const OG_IMAGE = `${SITE}/og-image.png`;
           if (smarker) smarker.setLatLng(e.latlng); else smarker = L.marker(e.latlng).addTo(smap);
         });
       }
-      document.getElementById("btn-suggest").addEventListener("click", () => {
+      const suggestBtn = document.getElementById("dash-suggest");
+      if (suggestBtn) suggestBtn.addEventListener("click", () => {
         sstatus.textContent = ""; dlg.showModal(); setTimeout(() => { initSubmitMap(); smap && smap.invalidateSize(); }, 80);
       });
       document.getElementById("submit-cancel").addEventListener("click", () => dlg.close());
@@ -336,7 +308,6 @@ const OG_IMAGE = `${SITE}/og-image.png`;
         else sstatus.textContent = "Error: " + (await r.text());
       });
 
-      setMode("login");
       refresh();
     </script>
 
@@ -625,13 +596,29 @@ const OG_IMAGE = `${SITE}/og-image.png`;
       }
 
       /* ---- AID-013: sidebar auth widget ---- */
-      .auth-panel { padding: 12px 14px; border-top: 1px solid rgba(255,255,255,0.12); display: flex; flex-direction: column; gap: 8px; }
-      .auth-form, .auth-me { display: flex; flex-direction: column; gap: 8px; }
-      .auth-form input { padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.06); color: inherit; }
-      .auth-error { color: #ffb4ab; font-size: 12px; min-height: 14px; margin: 0; }
-      .btn-auth { padding: 8px 12px; border-radius: 8px; border: none; background: var(--gold, #e8a33d); color: #14213d; font-weight: 700; cursor: pointer; }
-      .auth-toggle { background: none; border: none; color: inherit; opacity: 0.8; font-size: 12px; cursor: pointer; text-align: left; padding: 0; }
-      .auth-panel[data-state="loading"] .auth-form, .auth-panel[data-state="loading"] .auth-me { display: none; }
+      /* AID-013: account button pinned to the top-right corner (no card). */
+      .auth-panel { position: fixed; top: 14px; right: 18px; z-index: 35; display: flex; align-items: center; gap: 12px; }
+      .auth-panel[data-state="loading"] { display: none; }
+      /* `hidden` must win over the display rules below (else logout shows when logged out). */
+      .auth-panel [hidden] { display: none !important; }
+      .auth-me { display: flex; align-items: center; gap: 12px; }
+      .auth-greet { font-size: 13px; color: var(--ink); font-weight: 600; }
+      .auth-btn {
+        display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px;
+        border-radius: 10px; border: none; background: var(--gold); color: #14213d;
+        font-family: var(--font-display); font-weight: 700; font-size: 13.5px; cursor: pointer;
+        text-decoration: none; box-shadow: 0 4px 14px rgba(232, 163, 61, 0.35);
+        transition: filter 0.15s, transform 0.15s;
+      }
+      .auth-btn:hover { filter: brightness(0.96); transform: translateY(-1px); }
+      .auth-btn.ghost { background: transparent; color: var(--muted); box-shadow: none; border: 1px solid var(--line); font-weight: 600; }
+      .auth-btn.ghost:hover { color: var(--ink); border-color: var(--ink); }
+
+      @media (max-width: 860px) {
+        .auth-panel { top: 9px; right: 10px; gap: 8px; }
+        .auth-btn { padding: 7px 12px; font-size: 12.5px; }
+        .auth-greet { display: none; }
+      }
 
       /* ---- AID-013: submission dialog ---- */
       .submit-dialog { width: min(560px, 94vw); border: none; border-radius: 14px; padding: 20px; }

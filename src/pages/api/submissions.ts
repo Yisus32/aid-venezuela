@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { requireUser, createSubmission } from "../../lib/accounts";
+import { getCurrentUser, createSubmission } from "../../lib/accounts";
 
 export const prerender = false;
 
@@ -33,12 +33,12 @@ function sanitize(body: any) {
 }
 
 export const POST: APIRoute = async ({ request }) => {
-  const user = await requireUser(request);
-  if (!user) return new Response("Inicia sesión para enviar", { status: 401 });
+  // Anyone can suggest — no account required. Attribute it if a session exists.
   let body: any;
   try { body = await request.json(); } catch { return new Response("JSON inválido", { status: 400 }); }
   let payload;
   try { payload = sanitize(body); } catch (e: any) { return new Response(e?.message || "Datos inválidos", { status: 400 }); }
-  await createSubmission(payload, user.id);
+  const user = await getCurrentUser(request);
+  await createSubmission(payload, user?.id ?? null);
   return new Response(JSON.stringify({ ok: true }), { status: 201, headers: { "content-type": "application/json" } });
 };

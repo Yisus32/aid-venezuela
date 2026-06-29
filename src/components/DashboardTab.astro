@@ -67,6 +67,15 @@ const stats = [
     }
   </div>
 
+  <button type="button" id="dash-suggest" class="suggest-cta">
+    <span class="suggest-text">
+      <span class="suggest-eyebrow">Colabora</span>
+      <span class="suggest-title">Sugerir un centro o profesional</span>
+      <span class="suggest-sub">¿Conoces un punto de acopio o alguien que ayuda? Envíalo para revisión.</span>
+    </span>
+    <span class="suggest-action" aria-hidden="true">+ Sugerir</span>
+  </button>
+
   <div class="cards">
     <button type="button" class="card span-2 c-acopios" data-goto="acopios">
       <div class="card-top">
@@ -206,6 +215,39 @@ const stats = [
     color: var(--muted);
   }
 
+  /* ---- Suggest CTA (AID-013) ---- */
+  .suggest-cta {
+    width: 100%;
+    max-width: 900px;
+    margin-bottom: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+    padding: 18px 20px;
+    border-radius: 14px;
+    border: 1px solid var(--gold);
+    background: linear-gradient(180deg, #fffaf0, #fff);
+    box-shadow: 0 6px 20px rgba(232, 163, 61, 0.14);
+    transition: box-shadow 0.18s, transform 0.18s;
+  }
+  .suggest-cta:hover { box-shadow: 0 12px 30px rgba(232, 163, 61, 0.22); transform: translateY(-2px); }
+  .suggest-text { display: flex; flex-direction: column; gap: 3px; }
+  .suggest-eyebrow {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--gold-deep);
+  }
+  .suggest-title { font-family: var(--font-display); font-weight: 800; font-size: 18px; color: var(--ink); }
+  .suggest-sub { font-size: 13px; color: var(--muted); }
+  .suggest-action {
+    flex-shrink: 0; padding: 10px 18px; border-radius: 10px;
+    background: var(--gold); color: #14213d;
+    font-family: var(--font-display); font-weight: 700; font-size: 14px;
+  }
+
   /* ---- Cards ---- */
   .cards {
     display: grid;
@@ -289,6 +331,8 @@ const stats = [
   @media (max-width: 640px) {
     .stats { grid-template-columns: repeat(2, 1fr); }
     .cards { grid-template-columns: 1fr; }
+    .suggest-cta { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .suggest-action { align-self: stretch; text-align: center; }
     .fig-cards { grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .fig-value { font-size: 26px; }
     .fig-card { padding: 12px; }

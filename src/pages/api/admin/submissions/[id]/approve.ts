@@ -15,7 +15,11 @@ export const POST: APIRoute = async ({ request, params, clientAddress }) => {
   const sub = await getSubmission(params.id!);
   if (!sub) return new Response("No encontrado", { status: 404 });
   if (sub.status === "approved") return Response.json({ ok: true, already: true });
-  const payload: any = { ...(sub.payload as any) };
+  // The admin may approve with edited content (from the editor modal); fall back
+  // to the originally submitted payload when no override is sent.
+  let override: any = null;
+  try { override = await request.json(); } catch { /* no body → use stored payload */ }
+  const payload: any = override && override.title ? { ...override } : { ...(sub.payload as any) };
   if (!payload.filename) {
     payload.filename = "reg-" + (slug(payload.title) || "centro") + "-" + sub.id.slice(-6);
   }

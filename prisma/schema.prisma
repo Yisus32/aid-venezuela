@@ -151,8 +151,8 @@ model Submission {
   id            String    @id @default(cuid())
   payload       Json      // ImageEntry-shaped proposed record
   status        String    @default("pending") // pending | approved | rejected
-  submittedBy   User      @relation(fields: [submittedById], references: [id])
-  submittedById String
+  submittedBy   User?     @relation(fields: [submittedById], references: [id])
+  submittedById String?
   reviewedAt    DateTime?
   reviewNote    String?
   createdAt     DateTime  @default(now())

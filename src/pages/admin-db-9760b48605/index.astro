@@ -4,9 +4,20 @@
 export const prerender = false;
 
 import { getEntries, dbAvailable } from "../../lib/db";
+import { topNeeds } from "../../lib/needs";
 
 const ready = dbAvailable();
 const entries = ready ? await getEntries() : [];
+
+// AID-015: seed the needs checklist with the most-used needs, and gather the
+// country/state/city values already in the DB so the location selectors keep
+// existing rows selectable even when the static catalog lacks that exact name.
+const commonNeeds = topNeeds(entries, 15);
+const locationExtras = entries.map((e) => ({
+  country: e.location?.country || "",
+  state: e.location?.state || "",
+  city: e.location?.city || "",
+}));
 ---
 
 <!doctype html>
@@ -315,9 +326,9 @@ const entries = ready ? await getEntries() : [];
           <label class="wide">Título * <input name="title" required /></label>
           <label class="wide">Organización <input name="organization" /></label>
           <label>Especialidad <input name="specialty" /></label>
-          <label>País <input name="country" value="Venezuela" /></label>
-          <label>Estado <input name="state" /></label>
-          <label>Ciudad <input name="city" /></label>
+          <label>País * <input name="country" value="Venezuela" required /></label>
+          <label>Estado * <input name="state" required /></label>
+          <label>Ciudad * <input name="city" required /></label>
           <label class="wide">Dirección <input name="address" /></label>
           <div class="wide map-pick">
             <span class="map-pick-label">Ubicación — busca o haz clic en el mapa para fijar las coordenadas (también puedes arrastrar el marcador)</span>
@@ -327,7 +338,18 @@ const entries = ready ? await getEntries() : [];
           <label>Longitud <input name="lng" type="number" step="any" /></label>
           <label class="wide">Horario <input name="schedule" /></label>
           <label class="wide">Descripción <textarea name="description" rows="2"></textarea></label>
-          <label class="wide">Necesidades (una por línea) <textarea name="needs" rows="3"></textarea></label>
+          <div class="wide needs-field">
+            <span class="needs-label">Necesidades</span>
+            <div id="needs-list" class="needs-grid">
+              {commonNeeds.map((n) => (
+                <label class="need-chk"><input type="checkbox" value={n} /> {n}</label>
+              ))}
+            </div>
+            <div class="needs-add">
+              <input id="needs-new" type="text" placeholder="Otra necesidad…" />
+              <button type="button" id="needs-add-btn" class="btn ghost">+ Agregar</button>
+            </div>
+          </div>
           <label class="check"><input type="checkbox" name="acceptsMonetary" /> Acepta donación monetaria</label>
           <fieldset class="wide">
             <legend>Contacto</legend>
@@ -369,7 +391,17 @@ const entries = ready ? await getEntries() : [];
       </form>
     </dialog>
 
-    <script is:inline define:vars={{ ENTRIES: entries }}>
+    <script type="application/json" id="admin-entries" set:html={JSON.stringify(entries).replace(/</g, "\\u003c")}></script>
+    <script type="application/json" id="admin-extras" set:html={JSON.stringify(locationExtras).replace(/</g, "\\u003c")}></script>
+    <script>
+      import geoCatalog from "../../data/geo-catalog.json";
+      import { listCountries, statesFor, citiesFor, isFreeCity, mergeExtras } from "../../lib/geo";
+      import { createCombobox } from "../../lib/combobox";
+
+      const ENTRIES = JSON.parse(document.getElementById("admin-entries")?.textContent || "[]");
+      const LOCATION_EXTRAS = JSON.parse(document.getElementById("admin-extras")?.textContent || "[]");
+      const catalog = mergeExtras(geoCatalog, LOCATION_EXTRAS);
+
       const slug = (s) => (s || "").toLowerCase().normalize("NFD")
         .replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "").slice(0, 40);
@@ -382,6 +414,80 @@ const entries = ready ? await getEntries() : [];
       let pendingId = null; // when set, the editor is reviewing a pending submission
 
       const setv = (n, v) => { const el = form.elements[n]; if (el) el.value = v ?? ""; };
+
+      // ---- AID-015: selectores dependientes País -> Estado -> Ciudad ----
+      const countryInput = form.elements.country;
+      const stateInput = form.elements.state;
+      const cityInput = form.elements.city;
+
+      const countryCombo = createCombobox({
+        input: countryInput,
+        getOptions: () => listCountries(catalog),
+        strict: true,
+        onChange: () => {
+          stateInput.value = ""; cityInput.value = "";
+          stateCombo.refresh(); cityCombo.refresh();
+        },
+      });
+      const stateCombo = createCombobox({
+        input: stateInput,
+        getOptions: () => statesFor(catalog, countryInput.value),
+        strict: true,
+        onChange: () => { cityInput.value = ""; cityCombo.refresh(); },
+      });
+      const cityCombo = createCombobox({
+        input: cityInput,
+        getOptions: () => citiesFor(catalog, countryInput.value, stateInput.value),
+        // Venezuela: constrained to municipios; other countries: free entry.
+        strict: () => !isFreeCity(catalog, countryInput.value),
+      });
+      function applyLocation(loc) {
+        countryCombo.setValue(loc?.country || "", true);
+        stateCombo.setValue(loc?.state || "", true);
+        cityCombo.setValue(loc?.city || "", true);
+        stateCombo.refresh();
+        cityCombo.refresh();
+      }
+
+      // ---- AID-015: checklist de necesidades ----
+      const needsList = document.getElementById("needs-list");
+      const foldNeed = (s) => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+      const needInputs = () => [...needsList.querySelectorAll(".need-chk input")];
+      const findNeedChk = (value) => needInputs().find((i) => foldNeed(i.value) === foldNeed(value));
+      function addCustomNeed(value, checked) {
+        const v = (value || "").trim();
+        if (!v) return;
+        const existing = findNeedChk(v);
+        if (existing) { existing.checked = checked !== false; return; }
+        const label = document.createElement("label");
+        label.className = "need-chk need-custom";
+        const input = document.createElement("input");
+        input.type = "checkbox"; input.value = v; input.checked = checked !== false;
+        label.appendChild(input);
+        label.appendChild(document.createTextNode(" " + v));
+        needsList.appendChild(label);
+      }
+      function resetNeeds(selected) {
+        needsList.querySelectorAll(".need-custom").forEach((el) => el.remove());
+        needInputs().forEach((i) => { i.checked = false; });
+        (selected || []).forEach((n) => {
+          const chk = findNeedChk(n);
+          if (chk) chk.checked = true; else addCustomNeed(n, true);
+        });
+      }
+      const collectNeeds = () =>
+        needInputs().filter((i) => i.checked).map((i) => i.value.trim()).filter(Boolean);
+      const needsNew = document.getElementById("needs-new");
+      document.getElementById("needs-add-btn")?.addEventListener("click", () => {
+        const v = needsNew.value.trim();
+        if (!v) return;
+        addCustomNeed(v, true);
+        needsNew.value = "";
+        needsNew.focus();
+      });
+      needsNew?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); document.getElementById("needs-add-btn").click(); }
+      });
 
       // ---- Mapa selector de coordenadas en el modal ----
       let pickMap, pickMarker;
@@ -500,17 +606,19 @@ const entries = ready ? await getEntries() : [];
           setv("category", entry.category); setv("urgency", entry.urgency);
           setv("title", entry.title); setv("organization", entry.organization);
           setv("specialty", entry.specialty); setv("description", entry.description);
-          setv("country", entry.location?.country); setv("state", entry.location?.state);
-          setv("city", entry.location?.city); setv("address", entry.location?.address);
+          setv("address", entry.location?.address);
           setv("lat", entry.coords?.lat); setv("lng", entry.coords?.lng);
           setv("schedule", entry.schedule); setv("notes", entry.notes); setv("source", entry.source);
-          setv("needs", (entry.needs || []).join("\n"));
+          applyLocation(entry.location);
+          resetNeeds(entry.needs);
           form.elements.acceptsMonetary.checked = !!entry.acceptsMonetary;
           const c = entry.contact || {};
           ["phone","whatsapp","instagram","website","email"].forEach((k) => setv("c_" + k, c[k]));
         } else {
           mode = "create"; editingName = null;
           document.getElementById("form-title").textContent = "Nuevo registro";
+          applyLocation({ country: "Venezuela" });
+          resetNeeds([]);
         }
         setRepeats(entry);
         dlg.showModal();
@@ -536,7 +644,7 @@ const entries = ready ? await getEntries() : [];
           description: g("description") || undefined,
           location: { country: g("country"), state: g("state"), city: g("city"), address: g("address") || undefined },
           schedule: g("schedule") || undefined,
-          needs: g("needs").split("\n").map((s) => s.trim()).filter(Boolean),
+          needs: collectNeeds(),
           acceptsMonetary: form.elements.acceptsMonetary.checked,
           notes: g("notes") || undefined, source: g("source") || undefined,
         };
@@ -1087,6 +1195,37 @@ const entries = ready ? await getEntries() : [];
         position: sticky; bottom: -24px; margin: 8px -24px -24px; padding: 14px 24px;
         background: var(--card); border-top: 1px solid var(--line);
       }
+
+      /* AID-015: combobox (País/Estado/Ciudad) */
+      .combo { position: relative; display: block; }
+      .combo input { width: 100%; box-sizing: border-box; }
+      .combo-menu {
+        position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 2px);
+        margin: 0; padding: 4px; list-style: none; max-height: 220px; overflow-y: auto;
+        background: var(--card); border: 1px solid var(--line); border-radius: 9px;
+        box-shadow: 0 12px 32px rgba(20,33,61,0.18);
+      }
+      .combo-opt {
+        font-family: var(--font-body); font-size: 13px; text-transform: none; letter-spacing: 0;
+        color: var(--text); padding: 7px 9px; border-radius: 6px; cursor: pointer;
+      }
+      .combo-opt:hover, .combo-opt.active { background: var(--paper); }
+
+      /* AID-015: checklist de necesidades */
+      .needs-field { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; }
+      .needs-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+      .needs-grid {
+        display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 12px;
+        max-height: 180px; overflow-y: auto; padding: 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper);
+      }
+      .need-chk {
+        flex-direction: row; align-items: center; gap: 7px; text-transform: none;
+        font-family: var(--font-body); font-size: 13px; color: var(--text); cursor: pointer; letter-spacing: 0;
+      }
+      .need-chk input { width: auto; accent-color: var(--gold-deep); }
+      .need-custom { color: var(--ink); font-weight: 600; }
+      .needs-add { display: flex; gap: 8px; }
+      .needs-add input { flex: 1; font-size: 13px; }
 
       .repeat { padding: 10px 12px 12px; }
       .rrows { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }

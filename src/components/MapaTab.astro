@@ -908,9 +908,10 @@ const pointsJson = JSON.stringify(points).replace(/</g, "\\u003c");
   }
   .qclear:hover { border-color: var(--ink); background: var(--paper); }
 
-  /* Sismo cards */
+  /* Sismo cards. These are injected via innerHTML from the script, so — like the
+     Leaflet popups above — they need :global() to escape Astro's style scoping. */
   .quake-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
-  .quake-item {
+  :global(.quake-item) {
     border: 1px solid var(--line);
     border-left: 4px solid var(--line);
     border-radius: 10px;
@@ -918,11 +919,11 @@ const pointsJson = JSON.stringify(points).replace(/</g, "\\u003c");
     background: var(--card);
     transition: box-shadow 0.15s;
   }
-  .quake-item.sev-low { border-left-color: #eab308; }
-  .quake-item.sev-mid { border-left-color: #f97316; }
-  .quake-item.sev-high { border-left-color: #dc2626; }
-  .quake-item.sel { box-shadow: 0 0 0 2px var(--gold); }
-  .quake-main {
+  :global(.quake-item.sev-low) { border-left-color: #eab308; }
+  :global(.quake-item.sev-mid) { border-left-color: #f97316; }
+  :global(.quake-item.sev-high) { border-left-color: #dc2626; }
+  :global(.quake-item.sel) { box-shadow: 0 0 0 2px var(--gold); }
+  :global(.quake-main) {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -934,8 +935,8 @@ const pointsJson = JSON.stringify(points).replace(/</g, "\\u003c");
     cursor: pointer;
     font: inherit;
   }
-  .quake-main:hover { background: var(--paper); }
-  .qmag {
+  :global(.quake-main:hover) { background: var(--paper); }
+  :global(.qmag) {
     font-family: var(--font-mono);
     font-weight: 700;
     font-size: 13px;
@@ -946,16 +947,16 @@ const pointsJson = JSON.stringify(points).replace(/</g, "\\u003c");
     min-width: 46px;
     text-align: center;
   }
-  .qmag.sev-low { background: #ca8a04; }
-  .qmag.sev-mid { background: #ea580c; }
-  .qmag.sev-high { background: #dc2626; }
-  .qtext { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
-  .qtext strong { font-size: 13px; color: var(--ink); font-weight: 600; }
-  .qmeta { font-size: 11.5px; color: var(--muted); }
-  .qnew { color: #dc2626; font-weight: 700; }
-  .qgo { font-size: 14px; flex-shrink: 0; opacity: 0.5; }
-  .quake-main:hover .qgo { opacity: 1; }
-  .qactions {
+  :global(.qmag.sev-low) { background: #ca8a04; }
+  :global(.qmag.sev-mid) { background: #ea580c; }
+  :global(.qmag.sev-high) { background: #dc2626; }
+  :global(.qtext) { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+  :global(.qtext strong) { font-size: 13px; color: var(--ink); font-weight: 600; }
+  :global(.qmeta) { font-size: 11.5px; color: var(--muted); }
+  :global(.qnew) { color: #dc2626; font-weight: 700; }
+  :global(.qgo) { font-size: 14px; flex-shrink: 0; opacity: 0.5; }
+  :global(.quake-main:hover .qgo) { opacity: 1; }
+  :global(.qactions) {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -963,9 +964,9 @@ const pointsJson = JSON.stringify(points).replace(/</g, "\\u003c");
     padding: 0 14px 11px;
     font-size: 12px;
   }
-  .qsel { display: inline-flex; align-items: center; gap: 5px; color: var(--text); cursor: pointer; }
-  .qsel input { accent-color: var(--gold-deep); }
-  .qbtn {
+  :global(.qsel) { display: inline-flex; align-items: center; gap: 5px; color: var(--text); cursor: pointer; }
+  :global(.qsel input) { accent-color: var(--gold-deep); }
+  :global(.qbtn) {
     font-family: var(--font-mono);
     font-size: 11.5px;
     color: var(--ink);
@@ -976,8 +977,8 @@ const pointsJson = JSON.stringify(points).replace(/</g, "\\u003c");
     cursor: pointer;
     text-decoration: none;
   }
-  .qbtn:hover { border-color: var(--ink); }
-  .qusgs { margin-left: auto; }
+  :global(.qbtn:hover) { border-color: var(--ink); }
+  :global(.qusgs) { margin-left: auto; }
 
   /* Multi-select highlight ring on the map marker. */
   :global(.mk-wrap.mk-sel) { z-index: 1000 !important; }

@@ -88,6 +88,12 @@ const countries = Object.keys(grouped).sort((a, b) => {
 
 const acopiosCount = points.filter((p) => p.category === "center").length;
 const personalCount = points.filter((p) => p.category === "professional").length;
+
+// Serialize the points for the bundled module script. We can't use `define:vars`
+// (that forces an inline script, which can't `import` the quakes helpers), so we
+// hand the data over via a JSON <script> tag. Escape `<` to keep any stray
+// "</script>" in the data from breaking out of the tag.
+const pointsJson = JSON.stringify(points).replace(/</g, "\\u003c");
 ---
 
 <section id="tab-mapa" class="tab-panel">
@@ -126,6 +132,44 @@ const personalCount = points.filter((p) => p.category === "professional").length
     <div id="map" class="map-pane" role="application" aria-label="Mapa de puntos de ayuda y sismos"></div>
 
     <div class="list-pane" id="map-list">
+      <div class="subtabs" role="tablist" aria-label="Vista del listado">
+        <button type="button" class="subtab active" data-view="lugares" role="tab" aria-selected="true">Lugares</button>
+        <button type="button" class="subtab" data-view="sismos" role="tab" aria-selected="false">Sismos</button>
+      </div>
+
+      <div id="view-sismos" hidden>
+        <div class="quake-controls">
+          <div class="quake-stamp">
+            <span><strong id="quake-shown">0</strong> sismos · act. <span id="quake-updated">—</span></span>
+            <button type="button" id="quake-refresh2" class="qbtn" title="Actualizar sismos">⟳</button>
+          </div>
+          <div class="qmag-group" role="group" aria-label="Magnitud mínima">
+            <button type="button" class="qmag-btn active" data-min="2.5">≥2.5</button>
+            <button type="button" class="qmag-btn" data-min="4">≥4.0</button>
+            <button type="button" class="qmag-btn" data-min="5">≥5.0</button>
+          </div>
+          <div class="quake-selects">
+            <select id="quake-date" aria-label="Rango de fecha">
+              <option value="month">Este mes</option>
+              <option value="week">Esta semana</option>
+              <option value="today">Hoy</option>
+            </select>
+            <select id="quake-depth" aria-label="Profundidad">
+              <option value="any">Cualquier prof.</option>
+              <option value="surface">Superficial ≤10km</option>
+              <option value="shallow">Somero 10–70km</option>
+              <option value="deep">Profundo &gt;70km</option>
+            </select>
+          </div>
+          <button type="button" id="quake-clear" class="qclear" hidden>
+            Limpiar selección (<span id="quake-seln">0</span>)
+          </button>
+        </div>
+        <ul id="quake-list" class="quake-list"></ul>
+        <p id="quake-empty" class="list-empty" hidden>No hay sismos recientes con los filtros activos.</p>
+      </div>
+
+      <div id="view-lugares">
       <div class="list-filters">
         <select id="map-country" aria-label="Filtrar por país">
           <option value="">Todos los países</option>
@@ -167,12 +211,23 @@ const personalCount = points.filter((p) => p.category === "professional").length
         </div>
       ))}
       <p id="list-empty" class="list-empty" hidden>No hay puntos con los filtros activos.</p>
+      </div>
     </div>
   </div>
 </section>
 
-<script is:inline define:vars={{ points }}>
+<script type="application/json" id="map-points-data" set:html={pointsJson}></script>
+
+<script>
+  import {
+    parseQuake, filterQuakes, isRecent,
+    formatRelativeTime, severityClass, VE_BBOX,
+  } from "../lib/quakes";
+
   (function () {
+    const points = JSON.parse(
+      document.getElementById("map-points-data")?.textContent || "[]",
+    );
     function start() {
       if (typeof L === "undefined") return setTimeout(start, 100);
       const mapEl = document.getElementById("map");
@@ -392,7 +447,6 @@ const personalCount = points.filter((p) => p.category === "professional").length
       // GeoJSON feed (CORS-enabled, no key) and clip to the Venezuela region.
       // Loaded lazily the first time the Mapa tab is opened so the ~1.4 MB
       // feed never downloads for users who don't open the map.
-      const BBOX = { minLat: 0, maxLat: 14, minLng: -74, maxLng: -59 };
       const FEED =
         "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_month.geojson";
       const qCountEl = document.getElementById("quake-count");
@@ -400,50 +454,194 @@ const personalCount = points.filter((p) => p.category === "professional").length
       const qErr = document.getElementById("quake-error");
       let quakesLoaded = false;
 
-      // `force` re-queries USGS on demand (refresh button); otherwise it's the
-      // lazy first load when the tab opens. A cache-buster avoids a stale CDN copy.
+      // Sismos state (AID-014): parsed feed + per-id markers + in-memory filters
+      // and the multi-select highlight set. All ephemeral (lost on reload).
+      let quakesData = [];
+      const quakeMarkers = {};
+      const quakeFilter = { minMag: 2.5, dateRange: "month", depthBucket: "any" };
+      const selectedQuakes = new Set();
+
+      function makeQuakeMarker(q) {
+        const size = Math.max(20, Math.min(40, 16 + (q.mag || 1) * 4));
+        let html =
+          '<strong class="pop-title">M ' + (q.mag ?? "?") + "</strong>" +
+          '<div class="pop-detail">' + esc(q.place) + "</div>" +
+          '<div class="pop-detail">' + esc(formatRelativeTime(q.time, Date.now())) + "</div>";
+        if (q.url)
+          html += '<div class="pop-phone"><a href="' + esc(q.url) +
+            '" target="_blank" rel="noopener noreferrer">Ver en USGS ↗</a></div>';
+        return L.marker([q.lat, q.lng], { icon: pin("quake", size) }).bindPopup(html);
+      }
+
+      // Turn the quake layer on (and sync the legend) without touching the others.
+      function ensureQuakeLayer() {
+        if (active.quake) return;
+        active.quake = true;
+        map.addLayer(layers.quake);
+        const b = document.querySelector('.lg[data-type="quake"]');
+        if (b) { b.classList.add("active"); b.setAttribute("aria-pressed", "true"); }
+      }
+
+      function updateClearSel() {
+        const btn = document.getElementById("quake-clear");
+        const n = document.getElementById("quake-seln");
+        if (n) n.textContent = String(selectedQuakes.size);
+        if (btn) btn.hidden = selectedQuakes.size === 0;
+      }
+
+      // Filter -> rebuild visible markers + the sidebar list. Re-applies the
+      // highlight class because Leaflet recreates marker elements on re-add.
+      function renderQuakes() {
+        const now = Date.now();
+        const filtered = filterQuakes(quakesData, quakeFilter, now);
+        layers.quake.clearLayers();
+        filtered.forEach((q) => {
+          let m = quakeMarkers[q.id];
+          if (!m) { m = makeQuakeMarker(q); quakeMarkers[q.id] = m; }
+          layers.quake.addLayer(m);
+          const el = m.getElement && m.getElement();
+          if (el) el.classList.toggle("mk-sel", selectedQuakes.has(q.id));
+        });
+        renderQuakeList(filtered, now);
+      }
+
+      function renderQuakeList(filtered, now) {
+        const listEl = document.getElementById("quake-list");
+        const emptyEl = document.getElementById("quake-empty");
+        const shownEl = document.getElementById("quake-shown");
+        if (shownEl) shownEl.textContent = String(filtered.length);
+        if (emptyEl) emptyEl.hidden = filtered.length > 0;
+        if (!listEl) return;
+        const sorted = filtered.slice().sort((a, b) => b.time - a.time);
+        listEl.innerHTML = sorted.map((q) => {
+          const mag = q.mag == null ? "?" : q.mag.toFixed(1);
+          const sev = severityClass(q.mag);
+          const when = formatRelativeTime(q.time, now);
+          const depth = Math.round(q.depthKm);
+          const sel = selectedQuakes.has(q.id);
+          const fresh = isRecent(q.time, now) ? ' · <span class="qnew">🆕 nuevo</span>' : "";
+          return (
+            '<li class="quake-item ' + sev + (sel ? " sel" : "") + '" data-id="' + esc(q.id) + '">' +
+              '<button type="button" class="quake-main" data-id="' + esc(q.id) + '">' +
+                '<span class="qmag ' + sev + '">M' + esc(mag) + "</span>" +
+                '<span class="qtext"><strong>' + esc(q.place || "Sismo") + "</strong>" +
+                  '<span class="qmeta">' + esc(when) + " · " + depth + " km" + fresh + "</span>" +
+                "</span>" +
+                '<span class="qgo" aria-hidden="true">📍</span>' +
+              "</button>" +
+              '<div class="qactions">' +
+                '<label class="qsel"><input type="checkbox" class="qcheck" data-id="' + esc(q.id) + '"' + (sel ? " checked" : "") + "> resaltar</label>" +
+                '<button type="button" class="qbtn qcopy" data-coords="' + q.lat + ", " + q.lng + '">📋 coords</button>' +
+                (q.url ? '<a class="qbtn qusgs" href="' + esc(q.url) + '" target="_blank" rel="noopener noreferrer">↗ USGS</a>' : "") +
+              "</div>" +
+            "</li>"
+          );
+        }).join("");
+      }
+
+      // `force` re-queries USGS on demand (refresh buttons); otherwise it's the
+      // lazy first load. A cache-buster avoids a stale CDN copy.
       function loadQuakes(force) {
         if (quakesLoaded && !force) return;
         quakesLoaded = true;
         if (qBtn) qBtn.disabled = true;
         if (qErr) qErr.hidden = true;
         if (qCountEl) qCountEl.textContent = "…";
-        layers.quake.clearLayers();
         const url = force ? FEED + "?t=" + Math.floor(Date.now() / 1000) : FEED;
         fetch(url)
           .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
           .then((data) => {
-            const feats = (data.features || []).filter((f) => {
-              if (!f.geometry) return false;
-              const [lng, lat] = f.geometry.coordinates;
-              return (
-                lat > BBOX.minLat && lat < BBOX.maxLat &&
-                lng > BBOX.minLng && lng < BBOX.maxLng
-              );
-            });
-            feats.forEach((f) => {
-              const [lng, lat] = f.geometry.coordinates;
-              const mag = f.properties.mag;
-              const size = Math.max(20, Math.min(40, 16 + (mag || 1) * 4));
-              const when = new Date(f.properties.time).toLocaleString("es-VE");
-              const qm = L.marker([lat, lng], { icon: pin("quake", size) }).bindPopup(
-                '<strong class="pop-title">M ' + (mag ?? "?") + "</strong>" +
-                  '<div class="pop-detail">' + esc(f.properties.place || "") + "</div>" +
-                  '<div class="pop-detail">' + when + "</div>",
-              );
-              layers.quake.addLayer(qm);
-            });
-            if (qCountEl) qCountEl.textContent = "(" + feats.length + ")";
+            quakesData = (data.features || [])
+              .map((f) => parseQuake(f, VE_BBOX))
+              .filter(Boolean);
+            if (qCountEl) qCountEl.textContent = "(" + quakesData.length + ")";
+            const stamp = document.getElementById("quake-updated");
+            if (stamp) stamp.textContent = formatRelativeTime(Date.now(), Date.now());
+            renderQuakes();
           })
           .catch(() => {
             if (qErr) qErr.hidden = false;
             if (qCountEl) qCountEl.textContent = "(0)";
+            quakesData = [];
+            renderQuakes();
           })
           .finally(() => {
             if (qBtn) qBtn.disabled = false;
           });
       }
       if (qBtn) qBtn.addEventListener("click", () => loadQuakes(true));
+      document.getElementById("quake-refresh2")?.addEventListener("click", () => loadQuakes(true));
+
+      // Sub-tab switch: Lugares (centers/professionals) <-> Sismos.
+      document.querySelectorAll(".subtab[data-view]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const v = btn.dataset.view;
+          document.querySelectorAll(".subtab").forEach((b) => {
+            const on = b === btn;
+            b.classList.toggle("active", on);
+            b.setAttribute("aria-selected", String(on));
+          });
+          const lug = document.getElementById("view-lugares");
+          const sis = document.getElementById("view-sismos");
+          if (lug) lug.hidden = v !== "lugares";
+          if (sis) sis.hidden = v !== "sismos";
+          if (v === "sismos") { ensureQuakeLayer(); loadQuakes(); renderQuakes(); }
+        });
+      });
+
+      // Magnitude quick filters (single active minimum).
+      document.querySelectorAll(".qmag-btn[data-min]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          quakeFilter.minMag = parseFloat(btn.dataset.min);
+          document.querySelectorAll(".qmag-btn").forEach((b) => b.classList.toggle("active", b === btn));
+          renderQuakes();
+        });
+      });
+      document.getElementById("quake-date")?.addEventListener("change", (e) => {
+        quakeFilter.dateRange = e.target.value;
+        renderQuakes();
+      });
+      document.getElementById("quake-depth")?.addEventListener("change", (e) => {
+        quakeFilter.depthBucket = e.target.value;
+        renderQuakes();
+      });
+      document.getElementById("quake-clear")?.addEventListener("click", () => {
+        selectedQuakes.clear();
+        renderQuakes();
+        updateClearSel();
+      });
+
+      // Delegated handlers for the (re-rendered) quake cards.
+      const quakeListEl = document.getElementById("quake-list");
+      if (quakeListEl) {
+        quakeListEl.addEventListener("click", (ev) => {
+          const main = ev.target.closest(".quake-main");
+          if (main) {
+            const m = quakeMarkers[main.dataset.id];
+            if (m) { ensureQuakeLayer(); map.setView(m.getLatLng(), 9, { animate: true }); m.openPopup(); }
+            return;
+          }
+          const copy = ev.target.closest(".qcopy");
+          if (copy) {
+            const txt = copy.dataset.coords;
+            if (navigator.clipboard) navigator.clipboard.writeText(txt);
+            const old = copy.textContent;
+            copy.textContent = "✓ copiado";
+            setTimeout(() => { copy.textContent = old; }, 1200);
+          }
+        });
+        quakeListEl.addEventListener("change", (ev) => {
+          const chk = ev.target.closest(".qcheck");
+          if (!chk) return;
+          const id = chk.dataset.id;
+          if (chk.checked) selectedQuakes.add(id); else selectedQuakes.delete(id);
+          const m = quakeMarkers[id];
+          const el = m && m.getElement && m.getElement();
+          if (el) el.classList.toggle("mk-sel", chk.checked);
+          chk.closest(".quake-item")?.classList.toggle("sel", chk.checked);
+          updateClearSel();
+        });
+      }
 
       // Incidentes reportados (SOS Venezuela 2026): colapsos, fugas, vías, etc.
       // Vía nuestro proxy cacheado. Solo los que traen coordenadas se pintan.
@@ -630,6 +828,162 @@ const personalCount = points.filter((p) => p.category === "professional").length
 
   .quake-error { font-size: 13px; color: var(--urgent); margin: 0 0 12px; }
   .list-empty { font-size: 13px; color: var(--muted); text-align: center; padding: 24px 8px; }
+
+  /* Sub-tabs: Lugares | Sismos */
+  .subtabs {
+    position: sticky;
+    top: -14px;
+    z-index: 3;
+    display: flex;
+    gap: 6px;
+    margin: -14px -16px 12px;
+    padding: 12px 16px 0;
+    background: var(--card);
+  }
+  .subtab {
+    flex: 1;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--muted);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    padding: 9px 12px;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+  }
+  .subtab.active { color: var(--ink); background: var(--card); border-color: var(--ink); box-shadow: inset 0 -2px 0 var(--gold); }
+  .subtab:hover { color: var(--ink); }
+
+  /* Sismos filter controls */
+  .quake-controls { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+  .quake-stamp {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .quake-stamp strong { font-family: var(--font-mono); color: var(--ink); }
+  .qmag-group { display: flex; gap: 6px; }
+  .qmag-btn {
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .qmag-btn:hover { border-color: var(--ink); }
+  .qmag-btn.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .quake-selects { display: flex; gap: 8px; }
+  .quake-selects select {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-body);
+    font-size: 12.5px;
+    padding: 7px 9px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    color: var(--text);
+  }
+  .quake-selects select:focus { outline: none; border-color: var(--gold); }
+  .qclear {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 12px;
+    padding: 7px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .qclear:hover { border-color: var(--ink); background: var(--paper); }
+
+  /* Sismo cards */
+  .quake-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+  .quake-item {
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--card);
+    transition: box-shadow 0.15s;
+  }
+  .quake-item.sev-low { border-left-color: #eab308; }
+  .quake-item.sev-mid { border-left-color: #f97316; }
+  .quake-item.sev-high { border-left-color: #dc2626; }
+  .quake-item.sel { box-shadow: 0 0 0 2px var(--gold); }
+  .quake-main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: 11px 14px;
+    cursor: pointer;
+    font: inherit;
+  }
+  .quake-main:hover { background: var(--paper); }
+  .qmag {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 13px;
+    color: #fff;
+    border-radius: 7px;
+    padding: 5px 8px;
+    flex-shrink: 0;
+    min-width: 46px;
+    text-align: center;
+  }
+  .qmag.sev-low { background: #ca8a04; }
+  .qmag.sev-mid { background: #ea580c; }
+  .qmag.sev-high { background: #dc2626; }
+  .qtext { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+  .qtext strong { font-size: 13px; color: var(--ink); font-weight: 600; }
+  .qmeta { font-size: 11.5px; color: var(--muted); }
+  .qnew { color: #dc2626; font-weight: 700; }
+  .qgo { font-size: 14px; flex-shrink: 0; opacity: 0.5; }
+  .quake-main:hover .qgo { opacity: 1; }
+  .qactions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 0 14px 11px;
+    font-size: 12px;
+  }
+  .qsel { display: inline-flex; align-items: center; gap: 5px; color: var(--text); cursor: pointer; }
+  .qsel input { accent-color: var(--gold-deep); }
+  .qbtn {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .qbtn:hover { border-color: var(--ink); }
+  .qusgs { margin-left: auto; }
+
+  /* Multi-select highlight ring on the map marker. */
+  :global(.mk-wrap.mk-sel) { z-index: 1000 !important; }
+  :global(.mk-wrap.mk-sel .mk) {
+    box-shadow: 0 0 0 4px rgba(232, 163, 61, 0.6), 0 2px 6px rgba(0, 0, 0, 0.35);
+  }
 
   .country-block { margin-bottom: 6px; }
   .country-block:first-child { margin-top: 0; }

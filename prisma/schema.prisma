@@ -32,6 +32,11 @@ enum Role {
   admin
 }
 
+enum PersonStatus {
+  visible
+  hidden
+}
+
 model Organization {
   id     String  @id @default(cuid())
   name   String  @unique
@@ -156,6 +161,18 @@ model Submission {
   reviewedAt    DateTime?
   reviewNote    String?
   createdAt     DateTime  @default(now())
+
+  @@index([status])
+}
+
+/// AID-016: estado de publicación de una persona importada de la API SOS.
+/// Append/upsert por externalId; nunca borra ni altera el dato de origen.
+model PersonModeration {
+  externalId  String       @id // UUID de la API SOS
+  status      PersonStatus @default(visible)
+  flagReason  String? // "duplicated" | "unfair" | "unrespectful" | "irrelevant" | libre
+  moderatedBy String? // nickname del admin
+  moderatedAt DateTime     @updatedAt
 
   @@index([status])
 }

@@ -75,6 +75,10 @@ const locationExtras = entries.map((e) => ({
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 .01M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
         Usuarios
       </button>
+      <button class="tab" type="button" data-view="personas">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 .01M19 8v6M22 11h-6"/></svg>
+        Personas
+      </button>
     </nav>
 
     {
@@ -302,6 +306,34 @@ const locationExtras = entries.map((e) => ({
           </nav>
         </div>
       </div>
+    </section>
+
+    <!-- AID-016: moderación de personas importadas (API SOS) -->
+    <section id="view-personas" class="view">
+      <div class="view-tools">
+        <p class="audit-note">
+          Personas importadas de la API SOS. Ocultar suprime del sitio público sin borrar el dato de origen.
+        </p>
+        <span class="admin-count" id="pmod-count"></span>
+        <button type="button" id="pmod-refresh" class="btn ghost">Actualizar</button>
+      </div>
+      <div class="pmod-controls">
+        <input type="search" id="pmod-q" placeholder="Buscar por nombre o ID…" />
+        <div class="pmod-filters" role="group" aria-label="Filtrar personas">
+          <button type="button" class="chip active" data-filter="all">Todas</button>
+          <button type="button" class="chip" data-filter="visible">Visibles</button>
+          <button type="button" class="chip" data-filter="hidden">Ocultas</button>
+          <button type="button" class="chip" data-filter="flagged">Flagged</button>
+          <button type="button" class="chip" data-filter="duplicated">Duplicados</button>
+        </div>
+      </div>
+      <p id="pmod-status" class="audit-note">—</p>
+      <div id="pmod-list" class="pmod-grid"></div>
+      <nav class="pager" id="pmod-pager" hidden>
+        <button type="button" id="pmod-prev" class="btn ghost">Anterior</button>
+        <span id="pmod-info"></span>
+        <button type="button" id="pmod-next" class="btn ghost">Siguiente</button>
+      </nav>
     </section>
 
     <!-- Editor -->
@@ -802,6 +834,7 @@ const locationExtras = entries.map((e) => ({
           if (v === "auditoria" && !auditLoaded) loadAudit();
           if (v === "pendientes") loadPending();
           if (v === "usuarios") loadUsers();
+          if (v === "personas") loadPersonsMod();
         });
       });
       document.getElementById("audit-refresh").addEventListener("click", loadAudit);
@@ -1055,6 +1088,136 @@ const locationExtras = entries.map((e) => ({
         btn.setAttribute("aria-expanded", String(!hidden));
       }));
 
+      // ---- AID-016: moderación de personas importadas (API SOS) ----
+      let pmodItems = [];
+      let pmodOffset = 0;
+      const PMOD_LIMIT = 40;
+      let pmodFilter = "all";
+      let pmodQ = "";
+      let pmodLoading = false;
+
+      function pmodMatches(p) {
+        if (pmodFilter === "visible") return p._mod?.status !== "hidden";
+        if (pmodFilter === "hidden") return p._mod?.status === "hidden";
+        if (pmodFilter === "flagged") return !!p._mod?.flagReason;
+        if (pmodFilter === "duplicated") return !!p._duplicate;
+        return true;
+      }
+
+      const FLAG_ES = {
+        unfair: "Injusto", unrespectful: "Irrespetuoso",
+        duplicated: "Duplicado", irrelevant: "Irrelevante",
+      };
+
+      function pmodCard(p) {
+        const hidden = p._mod?.status === "hidden";
+        const flag = p._mod?.flagReason;
+        const place = [p.parroquia, p.municipio].filter(Boolean).join(" · ");
+        const chips =
+          (hidden ? '<span class="pchip hidden">Oculta</span>' : '<span class="pchip visible">Visible</span>') +
+          (flag ? '<span class="pchip flag">' + esc(FLAG_ES[flag] || flag) + "</span>" : "") +
+          (p._duplicate ? '<span class="pchip dup">Posible duplicado</span>' : "");
+        const photo = p.photo_path
+          ? '<img class="pmod-photo" src="' + esc(p.photo_path) + '" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'" />'
+          : '<div class="pmod-photo ph"></div>';
+        return (
+          '<article class="pmod-card' + (hidden ? " is-hidden" : "") + '" data-id="' + esc(p.id) + '">' +
+            photo +
+            '<div class="pmod-body">' +
+              '<h3>' + esc(p.display_name || "Sin nombre") + "</h3>" +
+              (place ? '<p class="pmod-place">' + esc(place) + "</p>" : "") +
+              '<p class="pmod-meta">' + esc(p.status || "") + (p.source_date ? " · " + esc(String(p.source_date).slice(0, 10)) : "") + "</p>" +
+              '<div class="pmod-chips">' + chips + "</div>" +
+              '<div class="pmod-actions">' +
+                '<button type="button" class="btn ghost" data-act="toggle">' + (hidden ? "Mostrar" : "Ocultar") + "</button>" +
+                '<button type="button" class="btn ghost" data-act="unfair">Flag injusto</button>' +
+                '<button type="button" class="btn ghost" data-act="duplicated">Flag duplicado</button>' +
+                (flag ? '<button type="button" class="btn ghost" data-act="clear">Limpiar flag</button>' : "") +
+              "</div>" +
+            "</div>" +
+          "</article>"
+        );
+      }
+
+      function renderPmod() {
+        const listEl = document.getElementById("pmod-list");
+        const statusEl = document.getElementById("pmod-status");
+        const countEl = document.getElementById("pmod-count");
+        const shown = pmodItems.filter(pmodMatches);
+        countEl.textContent = pmodItems.length ? pmodItems.length + " en esta página" : "";
+        if (!pmodItems.length) {
+          statusEl.textContent = pmodLoading ? "Cargando…" : "No se pudieron cargar personas (o no hay).";
+          listEl.innerHTML = "";
+        } else {
+          statusEl.textContent = "Mostrando " + shown.length + " de " + pmodItems.length + " (página).";
+          listEl.innerHTML = shown.map(pmodCard).join("") || '<p class="audit-note">Ninguna con este filtro.</p>';
+        }
+        const pager = document.getElementById("pmod-pager");
+        pager.hidden = false;
+        document.getElementById("pmod-prev").disabled = pmodOffset === 0;
+        document.getElementById("pmod-next").disabled = pmodItems.length < PMOD_LIMIT;
+        document.getElementById("pmod-info").textContent =
+          pmodOffset + 1 + "–" + (pmodOffset + pmodItems.length);
+      }
+
+      async function loadPersonsMod() {
+        pmodLoading = true;
+        renderPmod();
+        const u = new URL("/api/admin/persons", location.origin);
+        if (pmodQ) u.searchParams.set("q", pmodQ);
+        u.searchParams.set("limit", String(PMOD_LIMIT));
+        u.searchParams.set("offset", String(pmodOffset));
+        try {
+          const r = await fetch(u);
+          if (r.status === 401) { alert("No autorizado. Recarga la página."); location.reload(); return; }
+          const d = await r.json();
+          pmodItems = Array.isArray(d.items) ? d.items : [];
+        } catch { pmodItems = []; }
+        pmodLoading = false;
+        renderPmod();
+      }
+
+      async function pmodAct(id, act) {
+        const body =
+          act === "toggle"
+            ? { status: pmodItems.find((p) => p.id === id)?._mod?.status === "hidden" ? "visible" : "hidden" }
+            : act === "clear" ? { flagReason: null }
+            : { flagReason: act }; // "unfair" | "duplicated"
+        try {
+          const r = await fetch("/api/admin/persons/" + encodeURIComponent(id) + "/moderate", {
+            method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+          });
+          if (r.status === 401) { alert("No autorizado. Recarga la página."); location.reload(); return; }
+          if (!r.ok) { alert("Error: " + (await r.text())); return; }
+          const d = await r.json();
+          const it = pmodItems.find((p) => p.id === id);
+          if (it) it._mod = d.mod; // optimistic local update
+          renderPmod();
+        } catch { alert("Error de red"); }
+      }
+
+      document.getElementById("pmod-list").addEventListener("click", (ev) => {
+        const btn = ev.target.closest("[data-act]");
+        if (!btn) return;
+        const card = btn.closest(".pmod-card");
+        if (card) pmodAct(card.dataset.id, btn.dataset.act);
+      });
+      document.querySelectorAll(".pmod-filters .chip").forEach((c) => {
+        c.addEventListener("click", () => {
+          pmodFilter = c.dataset.filter;
+          document.querySelectorAll(".pmod-filters .chip").forEach((x) => x.classList.toggle("active", x === c));
+          renderPmod();
+        });
+      });
+      let pmodTimer;
+      document.getElementById("pmod-q").addEventListener("input", (e) => {
+        clearTimeout(pmodTimer);
+        pmodTimer = setTimeout(() => { pmodQ = e.target.value.trim(); pmodOffset = 0; loadPersonsMod(); }, 350);
+      });
+      document.getElementById("pmod-refresh").addEventListener("click", () => loadPersonsMod());
+      document.getElementById("pmod-prev").addEventListener("click", () => { if (pmodOffset > 0) { pmodOffset -= PMOD_LIMIT; loadPersonsMod(); } });
+      document.getElementById("pmod-next").addEventListener("click", () => { if (pmodItems.length >= PMOD_LIMIT) { pmodOffset += PMOD_LIMIT; loadPersonsMod(); } });
+
       (async function gate() {
         let me = null;
         try { me = await (await fetch("/api/auth/me")).json(); } catch {}
@@ -1226,6 +1389,41 @@ const locationExtras = entries.map((e) => ({
       .need-custom { color: var(--ink); font-weight: 600; }
       .needs-add { display: flex; gap: 8px; }
       .needs-add input { flex: 1; font-size: 13px; }
+
+      /* AID-016: moderación de personas */
+      .pmod-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0 20px 12px; }
+      .pmod-controls #pmod-q { flex: 1; min-width: 180px; }
+      .pmod-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+      .chip {
+        font-family: var(--font-mono); font-size: 11px; padding: 6px 11px; cursor: pointer;
+        border: 1px solid var(--line); border-radius: 20px; background: var(--card); color: var(--text);
+      }
+      .chip:hover { border-color: var(--ink); }
+      .chip.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+      #pmod-status { margin: 0 20px 10px; }
+      .pmod-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 12px; margin: 0 20px;
+      }
+      .pmod-card {
+        display: flex; gap: 12px; padding: 12px; border: 1px solid var(--line);
+        border-radius: 12px; background: var(--card);
+      }
+      .pmod-card.is-hidden { opacity: 0.6; background: var(--paper); }
+      .pmod-photo { width: 64px; height: 64px; border-radius: 9px; object-fit: cover; flex-shrink: 0; background: var(--paper); }
+      .pmod-photo.ph { display: block; }
+      .pmod-body { flex: 1; min-width: 0; }
+      .pmod-body h3 { font-family: var(--font-display); font-size: 14px; color: var(--ink); margin: 0 0 2px; }
+      .pmod-place { font-size: 12px; color: var(--text); margin: 0 0 2px; }
+      .pmod-meta { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); margin: 0 0 6px; }
+      .pmod-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+      .pchip { font-family: var(--font-mono); font-size: 10px; padding: 2px 7px; border-radius: 5px; }
+      .pchip.visible { background: #e8f4ea; color: #2f7d32; }
+      .pchip.hidden { background: #f3f4f7; color: var(--muted); }
+      .pchip.flag { background: #fdeceA; color: #d64533; }
+      .pchip.dup { background: #fff4e0; color: #b06a00; }
+      .pmod-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+      .pmod-actions .btn { font-size: 11px; padding: 5px 9px; }
 
       .repeat { padding: 10px 12px 12px; }
       .rrows { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }

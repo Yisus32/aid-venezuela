@@ -5,6 +5,7 @@ export const prerender = false;
 
 import { getEntries, dbAvailable } from "../../lib/db";
 import { topNeeds } from "../../lib/needs";
+import { DIAL_CODES, DEFAULT_DIAL } from "../../lib/phone";
 
 const ready = dbAvailable();
 const entries = ready ? await getEntries() : [];
@@ -386,11 +387,26 @@ const locationExtras = entries.map((e) => ({
           <fieldset class="wide">
             <legend>Contacto</legend>
             <div class="grid">
-              <label>Teléfono <input name="c_phone" /></label>
-              <label>WhatsApp <input name="c_whatsapp" /></label>
+              <label>Teléfono
+                <span class="phone-row">
+                  <select name="c_phone_dial" aria-label="Código de país (teléfono)">
+                    {DIAL_CODES.map((d) => <option value={d.code} selected={d.code === DEFAULT_DIAL}>{d.name} ({d.code})</option>)}
+                  </select>
+                  <input name="c_phone" inputmode="tel" />
+                </span>
+              </label>
+              <label>WhatsApp
+                <span class="phone-row">
+                  <select name="c_whatsapp_dial" aria-label="Código de país (WhatsApp)">
+                    {DIAL_CODES.map((d) => <option value={d.code} selected={d.code === DEFAULT_DIAL}>{d.name} ({d.code})</option>)}
+                  </select>
+                  <input name="c_whatsapp" inputmode="tel" />
+                </span>
+              </label>
               <label>Instagram <input name="c_instagram" /></label>
               <label>Web <input name="c_website" /></label>
               <label>Correo <input name="c_email" /></label>
+              <label class="check"><input type="checkbox" name="c_whatsapp_only" /> Solo mensajes al WhatsApp (sin llamadas) — profesionales</label>
             </div>
           </fieldset>
           <fieldset class="wide repeat">
@@ -429,6 +445,7 @@ const locationExtras = entries.map((e) => ({
       import geoCatalog from "../../data/geo-catalog.json";
       import { listCountries, statesFor, citiesFor, isFreeCity, mergeExtras } from "../../lib/geo";
       import { createCombobox } from "../../lib/combobox";
+      import { combineDialCode, splitDialCode } from "../../lib/phone";
 
       const ENTRIES = JSON.parse(document.getElementById("admin-entries")?.textContent || "[]");
       const LOCATION_EXTRAS = JSON.parse(document.getElementById("admin-extras")?.textContent || "[]");
@@ -645,7 +662,14 @@ const locationExtras = entries.map((e) => ({
           resetNeeds(entry.needs);
           form.elements.acceptsMonetary.checked = !!entry.acceptsMonetary;
           const c = entry.contact || {};
-          ["phone","whatsapp","instagram","website","email"].forEach((k) => setv("c_" + k, c[k]));
+          ["instagram","website","email"].forEach((k) => setv("c_" + k, c[k]));
+          // Phone/WhatsApp: split the stored "+58 412…" back into selector + number.
+          ["phone","whatsapp"].forEach((k) => {
+            const { dial, rest } = splitDialCode(c[k] || "");
+            setv("c_" + k + "_dial", dial);
+            setv("c_" + k, rest);
+          });
+          form.elements.c_whatsapp_only.checked = !!c.whatsappOnly;
         } else {
           mode = "create"; editingName = null;
           document.getElementById("form-title").textContent = "Nuevo registro";
@@ -683,7 +707,9 @@ const locationExtras = entries.map((e) => ({
         const lat = num("lat"), lng = num("lng");
         if (lat != null && lng != null) e.coords = { lat, lng };
         const c = {};
-        ["phone","whatsapp","instagram","website","email"].forEach((k) => { const v = g("c_" + k); if (v) c[k] = v; });
+        ["instagram","website","email"].forEach((k) => { const v = g("c_" + k); if (v) c[k] = v; });
+        ["phone","whatsapp"].forEach((k) => { const v = combineDialCode(g("c_" + k + "_dial"), g("c_" + k)); if (v) c[k] = v; });
+        if (form.elements.c_whatsapp_only.checked) c.whatsappOnly = true;
         if (Object.keys(c).length) e.contact = c;
         const people = readRepeat("people-list", PERSON_FIELDS, "name");
         if (people.length) e.people = people;
@@ -1352,6 +1378,9 @@ const locationExtras = entries.map((e) => ({
       input, select, textarea { font-family: var(--font-body); font-size: 14px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--card); color: var(--text); }
       input:focus, select:focus, textarea:focus { outline: none; border-color: var(--gold); }
       input[readonly] { background: var(--paper); }
+      .phone-row { display: flex; gap: 6px; }
+      .phone-row select { flex: 0 1 auto; min-width: 0; max-width: 46%; }
+      .phone-row input { flex: 1 1 auto; min-width: 0; }
       fieldset { grid-column: 1 / -1; border: 1px solid var(--line); border-radius: 10px; }
       legend { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 0 6px; }
       .form-status { color: var(--urgent); font-size: 13px; min-height: 18px; }

@@ -20,6 +20,8 @@ interface MapPoint {
   state: string;
   needs: string[];
   phone: string;
+  whatsapp: string;
+  waOnly: boolean;
   people: { name: string; contact: string }[];
 }
 
@@ -44,6 +46,8 @@ for (const e of entries) {
         state: p.state || "Sin especificar",
         needs: (e.needs || []).slice(0, 6),
         phone: "",
+        whatsapp: "",
+        waOnly: false,
         people: [],
       });
     });
@@ -62,6 +66,8 @@ for (const e of entries) {
       state: e.location.state || "Sin especificar",
       needs: (e.needs || []).slice(0, 6),
       phone: e.contact?.phone || "",
+      whatsapp: e.contact?.whatsapp || "",
+      waOnly: !!e.contact?.whatsappOnly,
       // Surface every listed professional's phone in the map popup (AID: psi-2
       // gathers several psychologists under one location).
       people: (e.people || [])
@@ -223,8 +229,12 @@ const pointsJson = JSON.stringify(points).replace(/</g, "\\u003c");
     parseQuake, filterQuakes, isRecent,
     formatRelativeTime, severityClass, VE_BBOX,
   } from "../lib/quakes";
+  import { waLink, proWaMessage } from "../lib/phone";
 
   (function () {
+    // Prefilled consultation message for "solo WhatsApp" professionals, with a
+    // greeting for the viewer's local time.
+    const proMsg = proWaMessage(new Date().getHours());
     const points = JSON.parse(
       document.getElementById("map-points-data")?.textContent || "[]",
     );
@@ -296,18 +306,22 @@ const pointsJson = JSON.stringify(points).replace(/</g, "\\u003c");
         if (p.detail) html += '<div class="pop-detail">' + esc(p.detail) + "</div>";
         if (p.needs && p.needs.length)
           html += '<div class="pop-needs"><b>Necesita:</b> ' + esc(p.needs.join(" · ")) + "</div>";
-        if (p.phone)
-          html +=
-            '<div class="pop-phone"><a href="tel:' +
-            esc(p.phone.replace(/[^\d+]/g, "")) +
-            '">' + esc(p.phone) + "</a></div>";
+        // "Solo WhatsApp" professionals: link to WhatsApp (with the prefilled
+        // message), never the call app. Otherwise keep the plain tel: link.
+        const waOnly = p.category === "professional" && p.waOnly;
+        const contactLink = (num) =>
+          waOnly
+            ? '<a href="' + esc(waLink(num, proMsg)) + '" target="_blank" rel="noopener noreferrer">WhatsApp: ' + esc(num) + "</a>"
+            : '<a href="tel:' + esc(num.replace(/[^\d+]/g, "")) + '">' + esc(num) + "</a>";
+        const mainNum = waOnly ? p.whatsapp || p.phone : p.phone;
+        if (mainNum)
+          html += '<div class="pop-phone">' + contactLink(mainNum) + "</div>";
         if (p.people && p.people.length) {
           html += '<div class="pop-people"><b>Contactos:</b>';
           p.people.forEach((pp) => {
             html +=
               '<div class="pop-person"><span>' + esc(pp.name) + "</span>" +
-              '<a href="tel:' + esc(pp.contact.replace(/[^\d+]/g, "")) + '">' +
-              esc(pp.contact) + "</a></div>";
+              contactLink(pp.contact) + "</div>";
           });
           html += "</div>";
         }

@@ -100,6 +100,9 @@ model Contact {
   instagram String?
   website   String?
   email     String?
+  // When true, the number should only open WhatsApp (no call app) and its
+  // WhatsApp link carries a prefilled consultation message. For professionals.
+  whatsappOnly Boolean @default(false)
   point     Point   @relation(fields: [pointId], references: [id], onDelete: Cascade)
   pointId   String  @unique
 }

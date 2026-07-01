@@ -4,6 +4,7 @@ interface Props {
   personalCount?: number;
 }
 const { acopiosCount = 0, personalCount = 0 } = Astro.props;
+import { DIAL_CODES, DEFAULT_DIAL } from "../lib/phone";
 
 // Link-preview metadata (Open Graph + Twitter cards). og:image must be an
 // absolute URL, so it's built from the configured `site`.
@@ -239,9 +240,21 @@ const OG_IMAGE = `${SITE}/og-image.png`;
         <label>Descripción <textarea name="description" rows="2"></textarea></label>
         <label>Necesidades (una por línea) <textarea name="needs" rows="3"></textarea></label>
         <fieldset><legend>Contacto</legend>
-          <input name="c_phone" placeholder="Teléfono" /><input name="c_whatsapp" placeholder="WhatsApp" />
+          <div class="phone-row">
+            <select name="c_phone_dial" aria-label="Código de país (teléfono)">
+              {DIAL_CODES.map((d) => <option value={d.code} selected={d.code === DEFAULT_DIAL}>{d.name} ({d.code})</option>)}
+            </select>
+            <input name="c_phone" inputmode="tel" placeholder="Teléfono" />
+          </div>
+          <div class="phone-row">
+            <select name="c_whatsapp_dial" aria-label="Código de país (WhatsApp)">
+              {DIAL_CODES.map((d) => <option value={d.code} selected={d.code === DEFAULT_DIAL}>{d.name} ({d.code})</option>)}
+            </select>
+            <input name="c_whatsapp" inputmode="tel" placeholder="WhatsApp" />
+          </div>
           <input name="c_instagram" placeholder="Instagram" /><input name="c_website" placeholder="Web" />
           <input name="c_email" placeholder="Correo" />
+          <label class="wa-only-check"><input type="checkbox" name="c_whatsapp_only" /> Solo mensajes al WhatsApp (sin llamadas) — profesionales</label>
         </fieldset>
         <div class="map-pick"><span>Ubicación (opcional): clic en el mapa</span><div id="submit-map"></div></div>
         <input type="hidden" name="lat" /><input type="hidden" name="lng" />
@@ -254,6 +267,8 @@ const OG_IMAGE = `${SITE}/og-image.png`;
     </dialog>
 
     <script>
+      import { combineDialCode } from "../lib/phone";
+
       const panel = document.getElementById("auth-panel");
       const loggedOut = document.getElementById("auth-out");
       const meBox = document.getElementById("auth-me");
@@ -302,7 +317,7 @@ const OG_IMAGE = `${SITE}/og-image.png`;
           organization: g("organization"), specialty: g("specialty"), description: g("description"),
           location: { country: g("country"), state: g("state"), city: g("city"), address: g("address") },
           needs: g("needs"),
-          contact: { phone: g("c_phone"), whatsapp: g("c_whatsapp"), instagram: g("c_instagram"), website: g("c_website"), email: g("c_email") },
+          contact: { phone: combineDialCode(g("c_phone_dial"), g("c_phone")), whatsapp: combineDialCode(g("c_whatsapp_dial"), g("c_whatsapp")), instagram: g("c_instagram"), website: g("c_website"), email: g("c_email"), whatsappOnly: sform.elements["c_whatsapp_only"]?.checked || undefined },
           ...(Number.isFinite(lat) && Number.isFinite(lng) ? { coords: { lat, lng } } : {}),
         };
         sstatus.textContent = "Enviando…";
@@ -632,6 +647,11 @@ const OG_IMAGE = `${SITE}/og-image.png`;
       .submit-dialog label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
       .submit-dialog input, .submit-dialog select, .submit-dialog textarea { padding: 8px 10px; border: 1px solid #d8dbe2; border-radius: 8px; }
       .submit-dialog fieldset { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; border: 1px solid #e3e6ec; border-radius: 8px; }
+      .submit-dialog .phone-row { display: flex; gap: 4px; }
+      .submit-dialog .phone-row select { flex: 0 1 auto; min-width: 0; max-width: 46%; }
+      .submit-dialog .phone-row input { flex: 1 1 auto; min-width: 0; }
+      .submit-dialog .wa-only-check { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 6px; }
+      .submit-dialog .wa-only-check input { width: auto; }
       #submit-map { height: 200px; border-radius: 8px; overflow: hidden; }
       .submit-dialog menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; margin: 6px 0 0; }
       .submit-status { font-size: 13px; min-height: 16px; margin: 0; }

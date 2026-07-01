@@ -4,6 +4,7 @@
 // themselves — and the relevant fields show/hide accordingly. Posts a Discord
 // embed straight from the browser (no backend). The script targets every
 // `.report-form` so multiple instances work.
+import { DIAL_CODES, DEFAULT_DIAL } from "../lib/phone";
 ---
 
 <form class="report-form" novalidate>
@@ -55,9 +56,26 @@
       <textarea name="needs" data-req rows="2" placeholder="Ej: Agua, alimentos no perecederos, medicinas"></textarea>
     </label>
 
-    <label class="rf-field rf-wide">
-      <span>Contacto</span>
-      <input name="contact" placeholder="Opcional — teléfono o redes" />
+    <label class="rf-field rf-twocol">
+      <span>Teléfono / WhatsApp</span>
+      <div class="rf-phone">
+        <select name="dial" aria-label="Código de país">
+          {DIAL_CODES.map((d) => (
+            <option value={d.code} selected={d.code === DEFAULT_DIAL}>
+              {d.name} ({d.code})
+            </option>
+          ))}
+        </select>
+        <input name="phone" inputmode="tel" placeholder="Opcional — 412 1234567" />
+      </div>
+    </label>
+    <label class="rf-field">
+      <span>Otro contacto</span>
+      <input name="contact" placeholder="Opcional — redes, correo" />
+    </label>
+    <label class="rf-check rf-wide" data-kinds="profesional" hidden>
+      <input type="checkbox" name="whatsappOnly" />
+      <span>Solo mensajes al WhatsApp (sin llamadas)</span>
     </label>
     <label class="rf-field rf-wide">
       <span>Notas</span>
@@ -77,6 +95,8 @@
 </form>
 
 <script>
+  import { combineDialCode } from "../lib/phone";
+
   const WEBHOOK =
     "https://discord.com/api/webhooks/1520112883575296111/7E0d6uELwHoFcHXkPu-9JrY6nrC6wpW898JHEwiVyDaq8R9k_TUb4zgQaqnu2buS2C3z";
 
@@ -127,6 +147,8 @@
       const isPro = kind === "profesional";
       const urgent = (form.querySelector('[name="urgent"]') as HTMLInputElement)
         .checked;
+      const whatsappOnly = (form.querySelector('[name="whatsappOnly"]') as HTMLInputElement)
+        .checked;
 
       const embed = {
         title: KIND_TITLE[kind] || "Reporte",
@@ -138,6 +160,7 @@
             ? [
                 { name: "Nombre", value: val("name") || "-", inline: true },
                 { name: "Profesión", value: val("specialty") || "-", inline: true },
+                ...(whatsappOnly ? [{ name: "Solo WhatsApp", value: "Sí", inline: true }] : []),
               ]
             : []),
           { name: "País", value: val("country") || "-", inline: true },
@@ -150,7 +173,10 @@
                 { name: "Necesidades", value: val("needs") || "-" },
                 { name: "Urgente", value: urgent ? "Sí" : "No", inline: true },
               ]),
-          ...(val("contact") ? [{ name: "Contacto", value: val("contact") }] : []),
+          ...(combineDialCode(val("dial"), val("phone"))
+            ? [{ name: "Teléfono/WhatsApp", value: combineDialCode(val("dial"), val("phone")), inline: true }]
+            : []),
+          ...(val("contact") ? [{ name: "Otro contacto", value: val("contact") }] : []),
           ...(val("notes") ? [{ name: "Notas", value: val("notes") }] : []),
         ],
       };
@@ -221,6 +247,11 @@
   .rf-field input:focus,
   .rf-field select:focus,
   .rf-field textarea:focus { outline: none; border-color: var(--gold); }
+
+  /* Country-code selector + local number share one row. */
+  .rf-phone { display: flex; gap: 6px; }
+  .rf-phone select { flex: 0 0 auto; max-width: 42%; }
+  .rf-phone input { flex: 1 1 auto; min-width: 0; }
 
   .rf-check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--text); }
   .rf-check input { width: 16px; height: 16px; accent-color: var(--urgent); }

@@ -1,5 +1,6 @@
 ---
 import type { ImageEntry } from "../types";
+import { waLink } from "../lib/phone";
 
 interface Props {
   professionals: ImageEntry[];
@@ -18,6 +19,7 @@ interface Listing {
   area: string;
   phone?: string;
   whatsapp?: string;
+  whatsappOnly?: boolean;
   instagram?: string;
   website?: string;
   notes?: string;
@@ -55,6 +57,7 @@ for (const e of professionals) {
         area: areaOf(p.specialty || e.specialty),
         phone: p.contact,
         whatsapp: single ? e.contact?.whatsapp : undefined,
+        whatsappOnly: e.contact?.whatsappOnly,
         instagram: single ? e.contact?.instagram : undefined,
         website: single ? e.contact?.website : undefined,
       });
@@ -70,6 +73,7 @@ for (const e of professionals) {
       area,
       phone: e.contact?.phone,
       whatsapp: e.contact?.whatsapp,
+      whatsappOnly: e.contact?.whatsappOnly,
       instagram: e.contact?.instagram,
       website: e.contact?.website,
       notes: e.notes,
@@ -86,11 +90,14 @@ const areaOptions = [...new Set(listings.map((l) => l.area))].sort();
 
 const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
 const waHref = (n: string) => {
+  // If the number already carries an international code ("+52 …"), respect it —
+  // don't assume Venezuela. Only bare/local numbers get the +58 default.
+  if (n.trim().startsWith("+")) return `https://wa.me/${n.replace(/\D/g, "")}`;
   let d = n.replace(/\D/g, "");
   if (d.startsWith("58")) {
-    /* ok */
-  } else if (d.startsWith("0")) d = "58" + d.slice(1);
-  else d = "58" + d;
+    /* ya trae el código de Venezuela */
+  } else if (d.startsWith("0")) d = "58" + d.slice(1); // 0412… → 58412…
+  else d = "58" + d; // número local venezolano
   return `https://wa.me/${d}`;
 };
 const igHref = (h: string) => `https://instagram.com/${h.replace(/^@/, "").trim()}`;
@@ -139,7 +146,12 @@ const webHref = (w: string) => (/^https?:\/\//.test(w) ? w : `https://${w}`);
 
   <ul class="prof-list">
     {
-      listings.map((l) => (
+      listings.map((l) => {
+        // "Solo WhatsApp": the number opens WhatsApp only (no call link), and
+        // the WhatsApp number falls back to the phone if no separate one given.
+        const waNumber = l.whatsappOnly ? l.whatsapp || l.phone : l.whatsapp;
+        const showTel = l.phone && !l.whatsappOnly;
+        return (
         <li
           class="prof-item"
           data-state={l.state}
@@ -178,20 +190,25 @@ const webHref = (w: string) => (/^https?:\/\//.test(w) ? w : `https://${w}`);
                     <dd>{l.location}</dd>
                   </>
                 )}
-                {l.phone && (
+                {showTel && (
                   <>
                     <dt>Teléfono</dt>
                     <dd>
-                      <a href={telHref(l.phone)}>{l.phone}</a>
+                      <a href={telHref(l.phone!)}>{l.phone}</a>
                     </dd>
                   </>
                 )}
-                {l.whatsapp && (
+                {waNumber && (
                   <>
                     <dt>WhatsApp</dt>
                     <dd>
-                      <a href={waHref(l.whatsapp)} target="_blank" rel="noopener noreferrer">
-                        {l.whatsapp}
+                      <a
+                        href={l.whatsappOnly ? waLink(waNumber) : waHref(waNumber)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        data-wa-pro={l.whatsappOnly ? waNumber : undefined}
+                      >
+                        {waNumber}
                       </a>
                     </dd>
                   </>
@@ -222,12 +239,23 @@ const webHref = (w: string) => (/^https?:\/\//.test(w) ? w : `https://${w}`);
             </div>
           </details>
         </li>
-      ))
+        );
+      })
     }
   </ul>
 </section>
 
 <script>
+  import { waLink, proWaMessage } from "../lib/phone";
+
+  // "Solo WhatsApp" links: fill in the consultation message with a greeting for
+  // the viewer's local time (done client-side so the greeting is accurate).
+  const hour = new Date().getHours();
+  const msg = proWaMessage(hour);
+  document.querySelectorAll<HTMLAnchorElement>("a[data-wa-pro]").forEach((a) => {
+    a.href = waLink(a.dataset.waPro || "", msg);
+  });
+
   const root = document.getElementById("tab-personal");
   if (root) {
     const items = [...root.querySelectorAll<HTMLElement>(".prof-item")];

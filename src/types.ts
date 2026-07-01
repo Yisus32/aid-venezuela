@@ -11,6 +11,8 @@ export interface Contact {
   instagram?: string;
   website?: string;
   email?: string;
+  /** WhatsApp-only: hide the call link, prefill a consultation message. */
+  whatsappOnly?: boolean;
 }
 
 export interface Person {

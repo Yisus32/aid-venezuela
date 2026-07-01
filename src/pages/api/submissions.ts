@@ -12,8 +12,9 @@ function sanitize(body: any) {
     ? body.needs.map((n: any) => s(n)).filter(Boolean)
     : s(body?.needs).split("\n").map((x: string) => x.trim()).filter(Boolean);
   const contactKeys = ["phone", "whatsapp", "instagram", "website", "email"] as const;
-  const contact: Record<string, string> = {};
+  const contact: Record<string, string | boolean> = {};
   for (const k of contactKeys) { const v = s(body?.contact?.[k]); if (v) contact[k] = v; }
+  if (body?.contact?.whatsappOnly) contact.whatsappOnly = true;
   const lat = Number(body?.coords?.lat), lng = Number(body?.coords?.lng);
   return {
     category, title,
